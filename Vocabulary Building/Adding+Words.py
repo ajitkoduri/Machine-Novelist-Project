@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 from urllib.request import urlopen #Web browser tool
 from bs4 import BeautifulSoup #html reader tool
@@ -92,47 +92,46 @@ Nouns_S = []
 Adverbs = []
                 
 #creating verbs files for each perspective
-with open('verbs_1_s.csv','a') as f:
-    Verbs_1_S.to_csv('verbs_1_s.csv', header=False)
-with open('verbs_2_s.csv','a') as f:
-    Verbs_2_S.to_csv('verbs_2_s.csv', header=False)
-with open('verbs_3_s.csv','a') as f:
-    Verbs_3_S.to_csv('verbs_3_s.csv', header=False)
-with open('verbs_1_p.csv','a') as f:
-    Verbs_1_P.to_csv('verbs_1_p.csv', header=False)
-with open('verbs_2_p.csv','a') as f:
-    Verbs_2_P.to_csv('verbs_2_p.csv', header=False)
-with open('verbs_3_p.csv','a') as f:
-    Verbs_3_P.to_csv('verbs_3_p.csv', header=False)
+Verbs_1_S.to_csv('verbs_1_s.csv', mode = 'a', header=False)
+Verbs_2_S.to_csv('verbs_2_s.csv', mode = 'a',  header=False)
+Verbs_3_S.to_csv('verbs_3_s.csv', mode = 'a',  header=False)
+Verbs_1_P.to_csv('verbs_1_p.csv', mode = 'a',  header=False)
+Verbs_2_P.to_csv('verbs_2_p.csv', mode = 'a',  header=False)
+Verbs_3_P.to_csv('verbs_3_p.csv', mode = 'a',  header=False)
 
 #update noun file
-with open('nouns_s.csv', 'a', newline='') as csvfile:
+with open('nouns_s.csv', 'a+', newline='') as csvfile:
     writer = csv.writer(csvfile, delimiter=',')
     for element in Nouns_S:
         writer.writerow([element,])
 
 #update prepositions file
-with open('prepositions.csv', 'a', newline='') as csvfile:
+with open('prepositions.csv', 'a+', newline='') as csvfile:
     writer = csv.writer(csvfile, delimiter=',')
     for element in Prepositions:
         writer.writerow([element,])
     
 #update Social Functions file
-with open('social.csv','a',newline='') as csvfile:
+with open('social.csv','a+',newline='') as csvfile:
     writer = csv.writer(csvfile, delimiter=',')
     for element in Social_Function:
         writer.writerow([element,])
     
 
 #update Adjectives file
-with open('adj.csv','a',newline='') as csvfile:
+with open('adj.csv','a+',newline='') as csvfile:
     writer = csv.writer(csvfile, delimiter=',')
     for element in Adjectives:
         writer.writerow([element,])
     
 #update Adverbs file
-with open('adv.csv','a',newline='') as csvfile:
+with open('adv.csv','a+',newline='') as csvfile:
     writer = csv.writer(csvfile, delimiter=',')
     for element in Adverbs:
         writer.writerow([element,])
+
+
+# In[ ]:
+
+
 
