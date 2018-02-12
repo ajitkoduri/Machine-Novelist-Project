@@ -3,6 +3,6 @@
 int main()
 {
 	Clause C;
-	C.Read("The red dog gave the cat a blanket");
+	C.Read("However, the very red dog give the cat and snake a blanket");
 	return 0;
 }

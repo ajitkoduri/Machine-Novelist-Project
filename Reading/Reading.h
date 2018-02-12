@@ -2,7 +2,6 @@
 #include "PoS_Labeller.h"
 #include <queue>
 #include <set>
-#include <stack>
 
 using namespace std;
 
@@ -32,7 +31,7 @@ struct Edge
 struct Graph_Clause
 {
 	//vertices of graph
-	stack <Graph_Word> noun;
+	queue <Graph_Word> noun;
 	//first vertices of the graph
 	vector <Graph_Word> subj;
 	//edges of the graph
@@ -72,9 +71,14 @@ struct Clause : public Vocabulary
 
 	//list of all unprocessed words
 	vector <Graph_Word*> unprocessed_words;
-	//queue for words about to be processed
-	queue <Graph_Word*> stored_words;
-	queue <vector <string> > stored_words_PoS;
+	//queue for adjective words about to be processe
+	queue <Graph_Word*> stored_words_adj;
+
+	//queue for adverb words about to be processed
+	queue <Graph_Word*> stored_words_adv;
+
+	//queue for prepositions in the clause
+	queue <Graph_Word*> prep_in_clause;
 
 	//Graph of the clause
 	Graph_Clause clause;
@@ -161,10 +165,10 @@ for words in the clause,removing words that have been classified more than once.
 
 void Clause::Make_Graph()
 {
-	//queue for adverb words about to be processed
-	queue <Graph_Word*> stored_words_adv;
-	queue <vector <string> > stored_words_PoS_adv;
 	bool is_listing = false;
+
+	//switch to see if a prepositional phrase is there or not
+	bool prep_avail = false;
 
 	//listing out the unprocessed words and making them nodes in the graph for a word
 	for (int index = 0; index < tokens.size(); index++)
@@ -196,10 +200,43 @@ void Clause::Make_Graph()
 			else
 			{
 				//simply store the word till the noun arrives.
-				stored_words.push(unprocessed_words[w_ind]);
-				stored_words_PoS.push(tokens_PoS_Label[w_ind]);
+				stored_words_adj.push(unprocessed_words[w_ind]);
 			}
 		}
+
+		//if the text could be a preposition
+		else if (contains(tokens_PoS_Label[w_ind], "prep"))
+		{
+			//we set the availability of being a preposition true and push it into a preposition queue.
+			prep_avail = true;
+			prep_in_clause.push(unprocessed_words[w_ind]);
+
+			//if the preposition could also be named an adverb, that means that the preposition describes the action.
+			//For instance, 'in time you will agree', 'in time' describes 'will agree'. And in another case, 'Turn in your badge',
+			//'in your badge' also describes the action 'turn' because it tells where to turn. These two cases tell me that there is
+			//not location-specific in the text, it's a quality of the type of word that could be a preposition.
+			if (contains(tokens_PoS_Label[w_ind], "adv"))
+			{
+				stored_words_adv.push(unprocessed_words[w_ind]);
+			}
+
+			//otherwise, the preposition describes a noun
+			else
+			{
+				//if there is a noun previous to it, such as 'the Queen of All', it describes that noun. We can make sure that
+				//the program doesn't look at the -1st element by asking if that word even exists.
+				if (contains(tokens_PoS_Label[w_ind - 1], "noun") && &unprocessed_words[w_ind-1])
+				{
+					unprocessed_words[w_ind - 1]->descriptors.push_back(unprocessed_words[w_ind]);
+				}
+				//in the case of something like "Of all the girls, I love her the most."
+				else
+				{
+					stored_words_adj.push(unprocessed_words[w_ind]);
+				}
+			}
+		}
+
 		//if the text is an adverb
 		else if (contains(tokens_PoS_Label[w_ind], "adv"))
 		{
@@ -224,9 +261,9 @@ void Clause::Make_Graph()
 			else
 			{
 				stored_words_adv.push(unprocessed_words[w_ind]);
-				stored_words_PoS_adv.push(tokens_PoS_Label[w_ind]);
 			}
 		}
+		
 		//if the text is an adjective
 		else if (contains(tokens_PoS_Label[w_ind], "adj"))
 		{
@@ -238,48 +275,71 @@ void Clause::Make_Graph()
 			}
 			else
 			{
-				stored_words.push(unprocessed_words[w_ind]);
-				stored_words_PoS.push(tokens_PoS_Label[w_ind]);
+				stored_words_adj.push(unprocessed_words[w_ind]);
 			}
 		}
+		
 		//if the text is a noun
 		else if (contains(tokens_PoS_Label[w_ind], "noun"))
 		{
+
 			//add all queue-stored adjectives and articles as its modifiers
-			while (!stored_words.empty())
+			while (!stored_words_adj.empty())
 			{
-				cout << "connecting " << stored_words.front()->name << " to " << unprocessed_words[w_ind]->name << endl;
-				unprocessed_words[w_ind]->descriptors.push_back(stored_words.front());
-				stored_words.pop();
-				stored_words_PoS.pop();
+				cout << "connecting " << stored_words_adj.front()->name << " to " << unprocessed_words[w_ind]->name << endl;
+				unprocessed_words[w_ind]->descriptors.push_back(stored_words_adj.front());
+				stored_words_adj.pop();
 			}
 
 			//append it into the clause graph
-			if (clause.verbs.empty())
+			if (clause.verbs.empty() && !prep_avail)
 			{
 				clause.subj.push_back(*unprocessed_words[w_ind]);
 				cout << "new subject added to clause: " << unprocessed_words[w_ind]->name << endl;
 			}
-			else
+			//now, to check if it is an indirect or direct object. We can tell the difference by simply checking if the word following
+			//the last indirect object is not a conjunction or a comma. 'The cat gave the dog, the mouse, and the person a fright.' The
+			//indirect objects here were dog, mouse, and person and you can tell that because the word following 'person' is not continuing
+			//the listing of direct objects. 
+			else if (!prep_avail)
 			{
 				clause.noun.push(*unprocessed_words[w_ind]);
-				cout << "new noun added to clause: " << unprocessed_words[w_ind]->name << endl;
+				if (!contains(tokens_PoS_Label[w_ind + 1], "conj") && unprocessed_words[w_ind + 1]->name != ",")
+				{
+					//fill the noun queue into the objects.
+					while (!clause.noun.empty())
+					{
+						clause.obj1.push_back(clause.noun.front());
+						cout << "new object in clause: " << unprocessed_words[w_ind]->name << endl;
+						clause.noun.pop();
+					}
+				}
+			}
+			//if the noun is currently in a preposition
+			else if (prep_avail)
+			{
+				//check if there are multiple objects for this preposition by checking if there is a listing in process
+				if (contains(tokens_PoS_Label[w_ind + 1], "conj") || unprocessed_words[w_ind + 1]->name == ",")
+				{
+					//fill the nouns as objects for the preposition
+					prep_in_clause.front()->descriptors.push_back(unprocessed_words[w_ind]);
+					cout << "preposition object found: " << prep_in_clause.front()->name << "-" << unprocessed_words[w_ind]->name << endl;
+				}
+
+				//if the list is done, we can terminate the preposition.
+				else
+				{
+					prep_avail = false;
+					prep_in_clause.pop();
+				}
 			}
 		}
+		
 		//if the text is a verb
 		else if (contains(tokens_PoS_Label[w_ind], "verb"))
 		{
-			//add all queue-stored adverbs as modifiers
-			while (!stored_words_adv.empty())
-			{
-				cout << "connecting " << stored_words_adv.front()->name << " to " << unprocessed_words[w_ind]->name << endl;
-				unprocessed_words[w_ind]->descriptors.push_back(stored_words_adv.front());
-				stored_words_adv.pop();
-				stored_words_PoS_adv.pop();
-			}
 			//append it into the clause graph
 			clause.verbs.push_back(*unprocessed_words[w_ind]);
-			clause.noun.push(*unprocessed_words[w_ind]);
 			cout << "new verb added to clause: " << unprocessed_words[w_ind]->name << endl;
 		}
 	}
@@ -289,18 +349,32 @@ void Clause::Make_Graph()
 
 void Clause::Process_Graph()
 {
-	//process the nouns.
-	clause.obj2.push_back(clause.noun.top());
-	cout << "the direct object is: " << clause.noun.top().name << endl;
-
-	clause.noun.pop();
-
-	if (!clause.noun.empty())
+	cout << "Processing..." << endl;
+	//if there are prepositions still not completed, we should interpret them as adverbs describing all the verbs.
+	while (!prep_in_clause.empty())
 	{
-		clause.obj1.push_back(clause.noun.top());
-		cout << "the indirect object is: " << clause.noun.top().name << endl;
+		stored_words_adv.push(prep_in_clause.front());
+		prep_in_clause.pop();
 	}
+	cout << "prepositions processed." << endl;
+	//all the remaining nouns in the text to be processed are the 2nd layer of objects.
+	while (!clause.noun.empty())
+	{
+		clause.obj2.push_back(clause.noun.front());
+		clause.noun.pop();
+		cout << "the direct object is: " << clause.obj2.front().name << endl;
+	}
+	cout << "direct objects processed." << endl;
+	//in the case that the only object was the direct object, all we have to do is move the initially processed as indirect objects 
+	//to the direct ones.
+	if (clause.obj2.empty())
+	{
+		clause.obj2 = clause.obj1;
+		clause.obj1.clear();
+	}
+	cout << "indirect objects processed." << endl;
 
+	//if the sentence only contains a subject and verb scenario
 	if (clause.obj2.empty())
 	{
 		//if there are no objects, the subjects refer back to themselves (they receives their own action)
@@ -326,11 +400,29 @@ void Clause::Process_Graph()
 
 		if (!clause.obj1.empty())
 		{
-			//all the direct objects will be modifiers of the indirect objects (not sure how well this is going to handle it)
-			for (int d_obj = 0; d_obj < clause.obj2.size(); d_obj++)
-				for (int i_obj = 0; i_obj < clause.obj1.size(); i_obj++)
-					clause.obj1[i_obj].descriptors.push_back(&clause.obj2[d_obj]);
+			//if there are indirect objects, the sentence can be rewritten as subjects...verb...direct objects... "to"-indirect objects.
+			//in that case, 'to' is an adverb, so we should treat the indirect object as an adverbial prepositional phrase.
+			for (int i_obj = 0; i_obj < clause.obj1.size(); i_obj++)
+			{
+				//we change the phrase of the indirect object to a 'to X' analog and treat that as an adverb for the actions. 
+				Graph_Word* connect = new Graph_Word("to");
+				connect->descriptors.push_back(&clause.obj1[i_obj]);
+				cout << "connecting " << clause.obj1[i_obj].name << " to to as indirect object." << endl;
+				//append it to the list of adverbs
+				stored_words_adv.push(connect);
+			}
 		}
+	}
+
+	//add all queue-stored adverbs as modifiers for every verb
+	while (!stored_words_adv.empty())
+	{
+		for (int verb = 0; verb < clause.verbs.size(); verb++)
+		{
+			cout << "connecting " << stored_words_adv.front()->name << " to " << clause.verbs[verb].name << endl;
+			clause.verbs[verb].descriptors.push_back(stored_words_adv.front());
+		}
+		stored_words_adv.pop();
 	}
 
 }
