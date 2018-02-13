@@ -2,7 +2,7 @@
 //driver function
 int main()
 {
-	Clause C;
-	C.Read("However, the very red dog give the cat and snake a blanket");
+	Story C;
+	C.split("The dog, the cat, and snake gave the horse a hat, and the alligator helped.");
 	return 0;
 }

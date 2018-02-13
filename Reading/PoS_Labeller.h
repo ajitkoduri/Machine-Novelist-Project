@@ -3,6 +3,10 @@
 #include "TrieDS.h"
 #include <map>
 
+using namespace std;
+//list of all unknown words in text
+vector <string> unknown_words;
+
 //structure that stores all the words from CSV files created in Python environment
 struct Vocabulary
 {
@@ -27,12 +31,10 @@ struct Vocabulary
 	Trie conjunctions;
 	Trie modal_verbs;
 	Trie articles;
+	Trie subjunctive_conjunctions;
 	
 	//list of all words in the text
 	vector <string> tokens;
-
-	//list of all unknown words in text
-	vector <string> unknown_words;
 	
 	//2-d container of all the Part of Speech labels the algorithm reads for each token
 	vector <vector <string> > tokens_PoS_Label;
@@ -70,6 +72,9 @@ struct Vocabulary
 
 		vector <string> m_verbs = { "can","could","may", "might",						//also I forgot to add a
 			"must", "shall","should", "will", "would" };								//databank for modal verbs
+
+		reader.read("C:\\Users\\kodur\\subjunctive_con.csv", false);					//read singular subjunctive conjunctions file
+		vector <string> subjunctive_con_vec = reader.data[0];							//data in the 1st column
 
 		reader.read("C:\\Users\\kodur\\nouns_s.csv", false);							//read singular nouns file
 		vector <string> nouns_s_vec = reader.data[0];									//nouns are put on the 1st column
@@ -161,6 +166,11 @@ struct Vocabulary
 		{
 			conjunctions.add(conjunctions_vec[conj_word]);
 		}
+		//gather the subjunctive conjunctions
+		for (int conj_word = 0; conj_word < subjunctive_con_vec.size(); conj_word++)
+		{
+			subjunctive_conjunctions.add(subjunctive_con_vec[conj_word]);
+		}
 		//gather the articles
 		for (int art_word = 0; art_word < articles_vec.size(); art_word++)
 		{
@@ -193,7 +203,7 @@ struct Vocabulary
 		{
 			//miscellaneous types of words
 			{ "noun sing",nouns_s },{ "noun pl", nouns_p },{ "prep", prepositions },{ "social", social },
-			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions },
+			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions }, {"sub_conj", subjunctive_conjunctions}, 
 
 			//section for pronouns separated by type of pronoun
 			{ "Pro Subj Sing", pronouns[0] },{ "Pro Subj Pl", pronouns[1] },{ "Pro Obj Sing", pronouns[2] },
@@ -325,7 +335,6 @@ struct Vocabulary
 
 				if (found_current == false)
 				{
-					cout << word << " -- is unknown" << endl;
 					tokens.push_back(word);
 					unknown_words.push_back(word);
 				}
