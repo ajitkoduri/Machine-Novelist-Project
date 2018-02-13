@@ -203,7 +203,7 @@ struct Vocabulary
 		{
 			//miscellaneous types of words
 			{ "noun sing",nouns_s },{ "noun pl", nouns_p },{ "prep", prepositions },{ "social", social },
-			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions }, {"sub_conj", subjunctive_conjunctions}, 
+			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions }, {"sub_con", subjunctive_conjunctions}, 
 
 			//section for pronouns separated by type of pronoun
 			{ "Pro Subj Sing", pronouns[0] },{ "Pro Subj Pl", pronouns[1] },{ "Pro Obj Sing", pronouns[2] },
@@ -308,7 +308,7 @@ struct Vocabulary
 				}
 			}
 
-			//if the previous word cannot be found, check the singular word to see if it can be found
+			//if the previous word cannot be found, check the singular token to see if it can be found
 			if (!prev_found)
 			{
 				prev_found = false;
@@ -319,7 +319,7 @@ struct Vocabulary
 					if (category->second.find(word))
 					{
 						//if the number of tokens exceeds 1, there is a possibility of duplicates arising. In those cases, remove them as they come.
-						if (tokens.size() > 1)
+						if (tokens.size() >= 1)
 						{
 							if (tokens.back() == word)
 								tokens.pop_back();
@@ -336,6 +336,7 @@ struct Vocabulary
 				if (found_current == false)
 				{
 					tokens.push_back(word);
+					cout << "unknown word: " << word << endl;
 					unknown_words.push_back(word);
 				}
 			}
@@ -352,7 +353,7 @@ struct Vocabulary
 	{
 		for (int i = 0; i < tokens.size(); i++)
 		{
-			cout << tokens[i] << ":" << endl;
+			cout << i << " " << tokens[i] << ":" << endl;
 			for (int j = 0; j < tokens_PoS_Label[i].size(); j++)
 			{
 				cout << "--- " << tokens_PoS_Label[i][j] << endl;
