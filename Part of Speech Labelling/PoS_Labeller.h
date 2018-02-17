@@ -3,6 +3,10 @@
 #include "TrieDS.h"
 #include <map>
 
+using namespace std;
+//list of all unknown words in text
+vector <string> unknown_words;
+
 //structure that stores all the words from CSV files created in Python environment
 struct Vocabulary
 {
@@ -26,8 +30,16 @@ struct Vocabulary
 	vector<Trie> pronouns;
 	Trie conjunctions;
 	Trie modal_verbs;
+	Trie articles;
+	Trie subjunctive_conjunctions;
+	
+	//list of all words in the text
+	vector <string> tokens;
+	
+	//2-d container of all the Part of Speech labels the algorithm reads for each token
+	vector <vector <string> > tokens_PoS_Label;
 
-	//map containing all of the types of words connected to the name of the trie
+	//map containing all the words of a Part of Speech type together, they're connected to the name of the trie
 	map <string, Trie> Words;
 
 	//function that grabs the words found in the Python environment and places them into the correct Tries
@@ -37,8 +49,10 @@ struct Vocabulary
 		//----------------------------------------------------------
 		//----------------------------------------------------------
 
-		vector <string> conjunctions_vec = { "for", "and",	//I realized I forgot to make a conjunctions file
-			"nor", "but", "or", "yet" };					//so I just wrote it in here. They were taken from
+		vector <string> articles_vec = { "the", "a", "an" };	//articles vector. Forgot to make an articles file.
+
+		vector <string> conjunctions_vec = { "for", "and",		//I realized I forgot to make a conjunctions file
+			"nor", "but", "or", "yet" };						//so I just wrote it in here. They were taken from
 																//the acronym FANBOYS for co-ordinating conjunctions.
 
 		reader.read("C:\\Users\\kodur\\verbs_1_s.csv");			//read 1st Person Singular verbs file
@@ -58,6 +72,9 @@ struct Vocabulary
 
 		vector <string> m_verbs = { "can","could","may", "might",						//also I forgot to add a
 			"must", "shall","should", "will", "would" };								//databank for modal verbs
+
+		reader.read("C:\\Users\\kodur\\subjunctive_con.csv", false);					//read singular subjunctive conjunctions file
+		vector <string> subjunctive_con_vec = reader.data[0];							//data in the 1st column
 
 		reader.read("C:\\Users\\kodur\\nouns_s.csv", false);							//read singular nouns file
 		vector <string> nouns_s_vec = reader.data[0];									//nouns are put on the 1st column
@@ -86,7 +103,7 @@ struct Vocabulary
 		vector <string> adv_vec = reader.data[0];										//adverbs only put on the first column
 
 		reader.read("C:\\Users\\kodur\\Pronouns.csv");											//read pronouns file
-		vector <vector <string>> Pronouns_2dvec(reader.data.cbegin() + 1, reader.data.cend());	//pronouns excluding row index
+		vector <vector <string>> Pronouns_2dvec = reader.data;									//pronouns excluding row index
 																								//placed by pandas DataFrame
 
 																								//----------------------------------------------------------
@@ -101,6 +118,7 @@ struct Vocabulary
 		verbs_1_p.resize(verbs_1p_2dvec.size());
 		verbs_2_p.resize(verbs_2p_2dvec.size());
 		verbs_3_p.resize(verbs_3p_2dvec.size());
+
 		pronouns.resize(Pronouns_2dvec.size());
 
 		//the columns of the 2-D vector of verbs are the tenses. Each of the words are stored as a specific verb in the total array.
@@ -149,7 +167,16 @@ struct Vocabulary
 		{
 			conjunctions.add(conjunctions_vec[conj_word]);
 		}
-
+		//gather the subjunctive conjunctions
+		for (int conj_word = 0; conj_word < subjunctive_con_vec.size(); conj_word++)
+		{
+			subjunctive_conjunctions.add(subjunctive_con_vec[conj_word]);
+		}
+		//gather the articles
+		for (int art_word = 0; art_word < articles_vec.size(); art_word++)
+		{
+			articles.add(articles_vec[art_word]);
+		}
 		//gather the modal verbs
 		for (int m_verb_word = 0; m_verb_word < m_verbs.size(); m_verb_word++)
 		{
@@ -177,13 +204,12 @@ struct Vocabulary
 		{
 			//miscellaneous types of words
 			{ "noun sing",nouns_s },{ "noun pl", nouns_p },{ "prep", prepositions },{ "social", social },
-			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions },
+			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions }, {"sub_con", subjunctive_conjunctions}, 
 
 			//section for pronouns separated by type of pronoun
-			{ "Pro Subj Sing", pronouns[0] },{ "Pro Subj Pl", pronouns[1] },{ "Pro Obj Sing", pronouns[2] },
-			{ "Pro Obj Pl", pronouns[3] },{ "Pro Poss adj Sing", pronouns[4] },{ "Pro Poss adj Pl", pronouns[5] },
-			{ "Pro Obj Poss Sing", pronouns[6] },{ "Pro Obj Poss Pl", pronouns[7] },{ "Pro Refl Sing", pronouns[8] },
-			{ "Pro Refl Pl", pronouns[9] },
+			{ "Pronoun Sing", pronouns[0] },{ "Pronoun Pl", pronouns[1] },{ "Pronoun Obj Sing", pronouns[2] },
+			{ "Pronoun Obj Pl", pronouns[3] },{ "Pro Poss adj Sing", pronouns[4] },{ "Pro Poss adj Pl", pronouns[5] },
+			{ "Pro adv Poss Sing", pronouns[6] },{ "Pro adv Poss Pl", pronouns[7] },
 			//section for verbs by their tense whether they are 1st/2nd/3rd person
 			//the _p implies it is perfect tense, _c is continous, and _p_c is perfect continuous tense
 
@@ -217,8 +243,8 @@ struct Vocabulary
 			{ "verbs3p_pres_p", verbs_3_p[3] },{ "verbs3p_fut", verbs_3_p[4] },{ "verbs3p_fut_p", verbs_3_p[5] },
 			{ "verbs3p_past_c", verbs_3_p[6] },{ "verbs3p_past_p", verbs_3_p[7] },{ "verbs3p_fut_c", verbs_3_p[8] },
 			{ "verbs3p_pres_p_c", verbs_3_p[9] },{ "verbs3p_past_p_c", verbs_3_p[10] },{ "verbs3p_fut_p_c", verbs_3_p[11] },
-			//modal verbs
-			{ "modal_verbs", modal_verbs }
+			//modal verbs and articles
+			{ "modal_verbs", modal_verbs }, {"article", articles}
 		};
 	}
 
@@ -240,14 +266,12 @@ struct Vocabulary
 	//string,then the string will enter the trie again and again till it is completely processed.
 
 	//function will output the word and then the label it comes with.
-	vector< pair <string,string> > Label_Text_PoS(const string& S)
+	void Label_Text_PoS(const string& S)
 	{
 		//container for each of the words
 		string word;
 		string remember;
 
-		//a container of all of the words connected to the part of speech they are labelled as.
-		vector< pair <string, string> > tokens;
 		//a switch to determine if the previous word was found and another to find if the current word is known
 		bool prev_found = false;
 		bool found_current = false;
@@ -260,28 +284,31 @@ struct Vocabulary
 			if (prev_found)
 			{
 				prev_found = false;
-				
 				string old = remember;
 				//change the remember string to have all of the new word
 				remember += " " + word;
 				//iterate through each of the word categories
 				for (map <string, Trie>::iterator category = Words.begin(); category != Words.end(); category++)
 				{
+					//if the concatenated word is a singular phrase, we can reassess the previously found singular word as the whole phrase
 					if (category->second.find(remember))
 					{
-						if (tokens.back().first == old)
+						if (tokens.back() == old)
 						{
-							cout << "removed : " << tokens.back().first << endl;
+							//remove the previously singular word of the phrase and replase it with the whole phrase
 							tokens.pop_back();
+							tokens_PoS_Label.pop_back();
+							tokens.push_back(remember);
 						}
-						cout << remember << " : " << category->first << endl;
-						tokens.push_back(pair<string,string> (remember, category->first));
+						//append the newly found part of speech for a token into its list of available parts of speeches
+						tokens_PoS_Label.resize(tokens.size());
+						tokens_PoS_Label.back().push_back(category->first);
 						prev_found = true;
 					}
 				}
 			}
 
-			//if the previous word cannot be found, check the singular word to see if it can be found
+			//if the previous word cannot be found, check the singular token to see if it can be found
 			if (!prev_found)
 			{
 				prev_found = false;
@@ -291,8 +318,16 @@ struct Vocabulary
 				{
 					if (category->second.find(word))
 					{
-						cout << word << " : " << category->first << endl;
-						tokens.push_back(pair<string, string>(word, category->first));
+						//if the number of tokens exceeds 1, there is a possibility of duplicates arising. In those cases, remove them as they come.
+						if (tokens.size() >= 1)
+						{
+							if (tokens.back() == word)
+								tokens.pop_back();
+						}
+						//append the word to the tokens if it is found and append the appropraite part of speech to its labels as well.
+						tokens.push_back(word);
+						tokens_PoS_Label.resize(tokens.size());
+						tokens_PoS_Label.back().push_back(category->first);
 						prev_found = true;
 						found_current = true;
 					}
@@ -300,7 +335,11 @@ struct Vocabulary
 
 				if (found_current == false)
 				{
-					cout << word << " -- is unknown" << endl;
+					tokens.push_back(word);
+					tokens_PoS_Label.resize(tokens.size());
+					cout << "unknown word: " << word << endl;
+					unknown_words.push_back(word);
+					tokens_PoS_Label.back().push_back("unknown");
 				}
 			}
 
@@ -310,8 +349,17 @@ struct Vocabulary
 				remember = word;
 			}
 		}
+	}
 
-		//return the tokens attribute
-		return tokens;
+	void Disp_Tokens()
+	{
+		for (int i = 0; i < tokens.size(); i++)
+		{
+			cout << i << " " << tokens[i] << ":" << endl;
+			for (int j = 0; j < tokens_PoS_Label[i].size(); j++)
+			{
+				cout << "--- " << tokens_PoS_Label[i][j] << endl;
+			}
+		}
 	}
 };

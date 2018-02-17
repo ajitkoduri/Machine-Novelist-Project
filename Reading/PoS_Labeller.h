@@ -103,7 +103,7 @@ struct Vocabulary
 		vector <string> adv_vec = reader.data[0];										//adverbs only put on the first column
 
 		reader.read("C:\\Users\\kodur\\Pronouns.csv");											//read pronouns file
-		vector <vector <string>> Pronouns_2dvec(reader.data.cbegin() + 1, reader.data.cend());	//pronouns excluding row index
+		vector <vector <string>> Pronouns_2dvec = reader.data;									//pronouns excluding row index
 																								//placed by pandas DataFrame
 
 																								//----------------------------------------------------------
@@ -118,6 +118,7 @@ struct Vocabulary
 		verbs_1_p.resize(verbs_1p_2dvec.size());
 		verbs_2_p.resize(verbs_2p_2dvec.size());
 		verbs_3_p.resize(verbs_3p_2dvec.size());
+
 		pronouns.resize(Pronouns_2dvec.size());
 
 		//the columns of the 2-D vector of verbs are the tenses. Each of the words are stored as a specific verb in the total array.
@@ -206,10 +207,9 @@ struct Vocabulary
 			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions }, {"sub_con", subjunctive_conjunctions}, 
 
 			//section for pronouns separated by type of pronoun
-			{ "Pro Subj Sing", pronouns[0] },{ "Pro Subj Pl", pronouns[1] },{ "Pro Obj Sing", pronouns[2] },
-			{ "Pro Obj Pl", pronouns[3] },{ "Pro Poss adj Sing", pronouns[4] },{ "Pro Poss adj Pl", pronouns[5] },
-			{ "Pro Obj Poss Sing", pronouns[6] },{ "Pro Obj Poss Pl", pronouns[7] },{ "Pro Refl Sing", pronouns[8] },
-			{ "Pro Refl Pl", pronouns[9] },
+			{ "Pronoun Sing", pronouns[0] },{ "Pronoun Pl", pronouns[1] },{ "Pronoun Obj Sing", pronouns[2] },
+			{ "Pronoun Obj Pl", pronouns[3] },{ "Pro Poss adj Sing", pronouns[4] },{ "Pro Poss adj Pl", pronouns[5] },
+			{ "Pro adv Poss Sing", pronouns[6] },{ "Pro adv Poss Pl", pronouns[7] },
 			//section for verbs by their tense whether they are 1st/2nd/3rd person
 			//the _p implies it is perfect tense, _c is continous, and _p_c is perfect continuous tense
 
@@ -336,8 +336,10 @@ struct Vocabulary
 				if (found_current == false)
 				{
 					tokens.push_back(word);
+					tokens_PoS_Label.resize(tokens.size());
 					cout << "unknown word: " << word << endl;
 					unknown_words.push_back(word);
+					tokens_PoS_Label.back().push_back("unknown");
 				}
 			}
 

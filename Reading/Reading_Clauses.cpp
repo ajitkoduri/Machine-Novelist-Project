@@ -2,7 +2,8 @@
 //driver function
 int main()
 {
-	Clause C;
-	C.Read("After the lion, the dog, and the elephant, the cat gave and ate the alligator and the snake the food and water");
+	Sentence C("After we come, he will go.");
+	C.split();
+
 	return 0;
 }

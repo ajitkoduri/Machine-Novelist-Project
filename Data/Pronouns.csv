@@ -1,5 +1,8 @@
-,0,1,2,3,4,5,6,7,8,9
-0,I,you,me,you,my,your,mine,ours,myself,ourselves
-1,he,we,him,us,his,our,his,yours,yourself,yourselves
-2,she,they,her,them,her,their,hers,theirs,himself,themselves
-3,it,,it,,its,,,,herself,
+0,1,2,3,4,5,6,7
+I,you,me,you,my,your,myself,ourselves
+he,we,him,us,his,our,yourself,yourselves
+she,they,her,them,her,their,himself,themselves
+it,,it,ours,its,,herself,
+,,mine,yours,,,,
+,,his,theirs,,,,
+,,hers,,,,,

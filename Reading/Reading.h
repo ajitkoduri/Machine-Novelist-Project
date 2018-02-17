@@ -77,6 +77,7 @@ struct Clause : public Vocabulary
 	//switch to say that the clause is a complete one
 	bool complete;
 	bool indep;
+	bool run_on;
 	vector <vector <string> > Saved_PoS_Label;
 	int switch_index;
 
@@ -190,7 +191,7 @@ void Clause::Make_Graph()
 	bool obj_full = false;
 	//switch to see if a prepositional phrase is there or not
 	bool prep_avail = false;
-
+	run_on = false;
 	//switches to control whether the sentence is listing a series of words or not.
 	bool n_is_listing = false;
 	bool n_end_list = false;
@@ -209,12 +210,14 @@ void Clause::Make_Graph()
 		//if the text is an article
 		if (contains(tokens_PoS_Label[w_ind], "article"))
 		{
+			tokens_PoS_Label[w_ind].clear();
+			tokens_PoS_Label[w_ind].push_back("article");
 			//simply store the word till the noun arrives.
 			stored_words_adj.push(unprocessed_words[w_ind]);
 		}
 
 		//if the text could be a preposition
-		else if (contains(tokens_PoS_Label[w_ind], "prep"))
+		if (contains(tokens_PoS_Label[w_ind], "prep"))
 		{
 			//we set the availability of being a preposition true and push it into a preposition queue.
 
@@ -250,9 +253,11 @@ void Clause::Make_Graph()
 			}
 		}
 
-		//if the text is an adverb
-		else if (contains(tokens_PoS_Label[w_ind], "adv"))
+		//if the text is an adverb or if it is a modal verb
+		if (contains(tokens_PoS_Label[w_ind], "adv") || contains(tokens_PoS_Label[w_ind], "modal_verb"))
 		{
+			tokens_PoS_Label[w_ind].clear();
+			tokens_PoS_Label[w_ind].push_back("adv");
 			//in the case the following word is also an adverb, just append the adverb as a modifier to the next adverb.
 			if (contains(tokens_PoS_Label[w_ind + 1], "adv"))
 			{
@@ -275,8 +280,10 @@ void Clause::Make_Graph()
 		}
 		
 		//if the text is an adjective
-		else if (contains(tokens_PoS_Label[w_ind], "adj"))
+		if (contains(tokens_PoS_Label[w_ind], "adj"))
 		{
+			tokens_PoS_Label[w_ind].clear();
+			tokens_PoS_Label[w_ind].push_back("adj");
 			//in the case the following word is also an adverb, just append the adverb as a modifier to the next adverb.
 			if (contains(tokens_PoS_Label[w_ind + 1], "noun"))
 			{
@@ -288,9 +295,67 @@ void Clause::Make_Graph()
 			}
 		}
 		
-		//if the text is a noun
-		else if (contains(tokens_PoS_Label[w_ind], "noun"))
+		//if there is a preposition or adjectives upcoming, we can assume the verb case should not be picked.
+		if (!prep_avail && stored_words_adj.empty())
 		{
+			//if the text is a verb
+			if (contains(tokens_PoS_Label[w_ind], "verb"))
+			{
+				tokens_PoS_Label[w_ind].clear();
+				tokens_PoS_Label[w_ind].push_back("verb");
+				if (v_end_list)
+					v_is_listing = false;
+				else
+					v_is_listing = true;
+
+				if (!stored_words_adj.empty() && clause.subj.empty())
+				{
+					if (contains(Saved_PoS_Label.back(), "prep"))
+					{
+						prep_avail = false;
+						while (!stored_words_adj.empty())
+						{
+							stored_words_adj.pop();
+						}
+						tokens_PoS_Label[switch_index].clear();
+						tokens_PoS_Label[switch_index].push_back("sub_con");
+						Make_Graph();
+						return;
+					}
+				}
+
+				if (clause.subj.empty())
+				{
+					clause.subj.push_back(Graph_Word("you"));
+				}
+
+				if (v_is_listing && v_ended)
+				{
+					cout << "run on!" << endl;
+					complete = false;
+					run_on = true;
+					return;
+				}
+				else
+				{
+					//append it into the clause graph
+					clause.verbs.push_back(*unprocessed_words[w_ind]);
+					v_ended = true;
+				}
+			}
+		}
+
+		//if the text is a noun
+		if (contains(tokens_PoS_Label[w_ind], "noun"))
+		{
+			tokens_PoS_Label[w_ind].clear();
+			tokens_PoS_Label[w_ind].push_back("noun");
+
+			if (contains(tokens_PoS_Label[w_ind + 1], "verb"))
+			{
+				prep_avail = false;
+			}
+
 			//append it into the clause graph. This will be ignoring appositives.
 			if (clause.verbs.empty() && !prep_avail)
 			{
@@ -351,53 +416,7 @@ void Clause::Make_Graph()
 				}
 			}
 		}
-		
-		//if the text is a verb
-		else if (contains(tokens_PoS_Label[w_ind], "verb"))
-		{
-			if (v_end_list)
-				v_is_listing = false;
-			else
-				v_is_listing = true;
 
-			if (!stored_words_adj.empty() && clause.subj.empty())
-			{
-				if (contains(Saved_PoS_Label.back(), "prep"))
-				{
-					prep_avail = false;
-					while (!stored_words_adj.empty())
-					{
-						stored_words_adj.pop();
-					}
-					tokens_PoS_Label[switch_index].clear();
-					tokens_PoS_Label[switch_index].push_back("sub_con");
-					cout << endl;
-					Make_Graph();
-					break;
-				}
-			}
-
-			if (!stored_words_adj.empty() && !clause.subj.empty())
-			{
-				clause.subj.push_back(Graph_Word("you"));
-			}
-
-			if (v_is_listing && v_ended)
-			{
-				cout << "run on!" << endl;
-				complete = false;
-				break;
-			}
-			else
-			{
-				//if it's apart of a list of verbs
-				cout << unprocessed_words[w_ind]->name << endl;
-				//append it into the clause graph
-				clause.verbs.push_back(*unprocessed_words[w_ind]);
-				v_ended = true;
-			}
-		}
-		
 		//if the text is a conjunction, it is the end of the list, so the next noun/verb in the list can be treated as such.
 		if (contains(tokens_PoS_Label[w_ind], "conj"))
 		{
@@ -413,15 +432,21 @@ void Clause::Make_Graph()
 			}
 		}
 	}
-
+	
 	Process_Graph();
 }
 
 void Clause::Process_Graph()
 {
-	if (!clause.subj.empty() && !clause.verbs.empty())
+	if (!clause.subj.empty() && !clause.verbs.empty() && Union<char>(punctuation,unprocessed_words.back()->name[0]) == punctuation)
 	{
 		complete = true;
+	}
+
+	if (contains(tokens_PoS_Label.back(), "conj") || contains(tokens_PoS_Label.back(), "adj"))
+	{
+		complete = false;
+		return;
 	}
 	//if there are prepositions still not completed, we should interpret them as adverbs describing all the verbs.
 	while (!prep_in_clause.empty())
@@ -504,14 +529,15 @@ void Clause::Process_Graph()
 
 }
 
+/*
+Sentence structure, will contain multiple clauses.
+*/
 struct Sentence : public Clause
 {
 	string text;
-	vector <Clause> clauses;
-	vector <string> string_clauses;
-
-	vector <bool> indep_dep;
-
+	vector <Clause> Clauses;
+	queue <Clause> Q_Clauses;
+	Sentence() {}
 	Sentence(string s)
 	{
 		text = s;
@@ -522,21 +548,16 @@ struct Sentence : public Clause
 	{
 		Learn();
 		Process_Text(text);
-		Label_Text_PoS(text);
+		Label_Text_PoS(clause_statement);
+
 		for (int index = 0; index < tokens.size(); index++)
 		{
 			Graph_Word* unproc_word = new Graph_Word(tokens[index]);
 			unprocessed_words.push_back(unproc_word);
 		}
-		indep_dep.resize(tokens.size());
-		indep_dep[0] = true;
-		for (int index = 0; index < tokens.size(); index++)
+		for (int index = 0; index < unprocessed_words.size(); index++)
 		{
-			if (contains(tokens_PoS_Label[index], "sub_con"))
-			{
-				indep_dep[index] = false;
-			}
-			indep_dep[index + 1] = indep_dep[index];
+
 		}
 	}
 };
