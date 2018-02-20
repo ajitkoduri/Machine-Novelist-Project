@@ -134,9 +134,9 @@ struct Clause : public Vocabulary
 	----------------------------------------------------------------------------------------------------------------------------------------------------------
 	*/
 	//switch to see if the objects are finished listing.
-	bool obj_full = false;
+	bool obj_full;
 	//switch to see if a prepositional phrase is there or not
-	bool prep_avail = false;
+	bool prep_avail;
 	//switches to control whether the sentence is listing a series of words or not.
 	bool n_is_listing = false;
 	bool n_end_list = false;
@@ -254,12 +254,17 @@ for words in the clause,removing words that have been classified more than once.
 
 void Clause::Make_Graph()
 {
-	//if there is a list ongoing, it can't be a full clause
-	if (n_is_listing || v_is_listing)
-	{
-		complete = false;
-		run_on = true;
-	}
+	//switch to see if the objects are finished listing.
+	bool obj_full = false;
+	//switch to see if a prepositional phrase is there or not
+	bool prep_avail = false;
+	//switches to control whether the sentence is listing a series of words or not.
+	bool n_is_listing = false;
+	bool n_end_list = false;
+
+	bool v_is_listing = false;
+	bool v_end_list = false;
+	bool v_ended = false;
 	//w_ind is the word index (saving room for clarity)
 	for (int w_ind = 0; w_ind < unprocessed_words.size(); w_ind++)
 	{
@@ -328,19 +333,22 @@ void Clause::Make_Graph()
 			tokens_PoS_Label[w_ind].clear();
 			tokens_PoS_Label[w_ind].push_back("adv");
 			//in the case the following word is also an adverb, just append the adverb as a modifier to the next adverb.
-			if (contains(tokens_PoS_Label[w_ind + 1], "adv"))
+			if (w_ind + 1 != unprocessed_words.size())
 			{
-				unprocessed_words[w_ind + 1]->descriptors.push_back(unprocessed_words[w_ind]);
-			}
-			//if the following word is an adjective, then it modifies the adjective.
-			else if (contains(tokens_PoS_Label[w_ind + 1], "adj"))
-			{
-				unprocessed_words[w_ind + 1]->descriptors.push_back(unprocessed_words[w_ind]);
-			}
-			//if the following word is a verb, then it must modify that verb.
-			else if (contains(tokens_PoS_Label[w_ind + 1], "verb"))
-			{
-				unprocessed_words[w_ind + 1]->descriptors.push_back(unprocessed_words[w_ind]);
+				if (contains(tokens_PoS_Label[w_ind + 1], "adv"))
+				{
+					unprocessed_words[w_ind + 1]->descriptors.push_back(unprocessed_words[w_ind]);
+				}
+				//if the following word is an adjective, then it modifies the adjective.
+				else if (contains(tokens_PoS_Label[w_ind + 1], "adj"))
+				{
+					unprocessed_words[w_ind + 1]->descriptors.push_back(unprocessed_words[w_ind]);
+				}
+				//if the following word is a verb, then it must modify that verb.
+				else if (contains(tokens_PoS_Label[w_ind + 1], "verb"))
+				{
+					unprocessed_words[w_ind + 1]->descriptors.push_back(unprocessed_words[w_ind]);
+				}
 			}
 			else
 			{
@@ -386,7 +394,7 @@ void Clause::Make_Graph()
 
 				if (clause.subj.empty())
 				{
-					if (contains(Saved_PoS_Label.back(), "prep"))
+					if (contains(Saved_PoS_Label.back(), "prep") && !Saved_PoS_Label.empty())
 					{
 						indep = true;
 						prep_avail = false;
@@ -559,7 +567,6 @@ void Clause::Make_Graph()
 			}
 		}
 	}
-	
 	Process_Graph();
 }
 
@@ -702,12 +709,12 @@ struct Sentence : public Clause
 
 void Sentence::split()
 {
-	queue <Clause> Q_Clauses;
+	stack <Clause> Q_Clauses;
 	//tokenize and label by part of speech every word in the sentence
 	Vocabulary::Learn();
 	Process_Text(text);
 	Label_Text_PoS(clause_statement);
-	Disp_Tokens();
+
 	//setting each of the tokens to be processed as a word
 	for (int index = 0; index < tokens.size(); index++)
 	{
@@ -741,7 +748,6 @@ void Sentence::split()
 		//In the case of another independent clause, we can just attach a make a new clause to represent that.
 		if (contains(tokens_PoS_Label[index], "sub_con") || Q_Clauses.empty())
 		{
-
 			Clause* C = new Clause;
 			C->indep = false;
 			
@@ -750,60 +756,65 @@ void Sentence::split()
 				//if the clause is adjectival, it must be preceded by a noun (if the preceding clause is still incomplete).
 				if (contains(tokens_PoS_Label[index - 1], "noun") && index > 0)
 				{
-					Q_Clauses.front().unprocessed_words[index - 1]->descriptors.push_back(sent_unprocessed_words[index]);
+					cout << "adding clause as a adjective" << endl;
+					Q_Clauses.top().unprocessed_words[index - 1]->descriptors.push_back(sent_unprocessed_words[index]);
 				}
 				//if the clause is a noun, it will either be preceded by a verb or an adjective. If it is precede by an adjective
 				//it could either be the subject or an object of the clause.
 				else if (contains(tokens_PoS_Label[index - 1], "adj") && index > 0)
 				{
+					cout << "adding clause as a noun" << endl;
 					//if there are no verbs that have been passed, it's got to be a subject of the clause.
-					if (Q_Clauses.front().clause.verbs.empty())
+					if (Q_Clauses.top().clause.verbs.empty())
 					{
-						Q_Clauses.front().clause.subj.push_back(*sent_unprocessed_words[index]);
+						Q_Clauses.top().clause.subj.push_back(*sent_unprocessed_words[index]);
 					}
 					//if there are verbs that have been passed, it's got to be an object.
 					else
 					{
-						Q_Clauses.front().clause.noun.push(*sent_unprocessed_words[index]);
+						Q_Clauses.top().clause.noun.push(*sent_unprocessed_words[index]);
 					}
 				}
 				//in the case that the preceding word is a verb, it must be an object, so we push it through there.
 				else if (contains(tokens_PoS_Label[index - 1], "verb") && index > 0)
 				{
-					Q_Clauses.front().clause.noun.push(*sent_unprocessed_words[index]);
+					cout << "adding clause as an object" << endl;
+					Q_Clauses.top().clause.noun.push(*sent_unprocessed_words[index]);
 				}
 			}
 			cout << "making new clause" << endl;
 
 			Q_Clauses.push(*C);
-			Q_Clauses.front().unprocessed_words.push_back(sent_unprocessed_words[index]);
-			Q_Clauses.front().tokens_PoS_Label.resize(Q_Clauses.front().unprocessed_words.size());
-			Q_Clauses.front().tokens_PoS_Label.back() = tokens_PoS_Label[index];
+			Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
+			Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
+			Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
 
-			Q_Clauses.front().Make_Graph();
+			Q_Clauses.top().Make_Graph();
 		}
+		
 		//the normal case of constantly adding new words to a clause till it is a complete thought
-		else if (!Q_Clauses.front().complete || !Q_Clauses.front().run_on)
+		else if (!Q_Clauses.top().complete || !Q_Clauses.top().run_on)
 		{
-			Q_Clauses.front().unprocessed_words.push_back(sent_unprocessed_words[index]);
-			Q_Clauses.front().tokens_PoS_Label.resize(Q_Clauses.front().unprocessed_words.size());
-			Q_Clauses.front().tokens_PoS_Label.back() = tokens_PoS_Label[index];
-			Q_Clauses.front().Make_Graph();
+			Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
+			Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
+			Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
+			Q_Clauses.top().Make_Graph();
 			cout << "adding word to clause" << endl;
-			cout << Q_Clauses.front().unprocessed_words.back()->name << endl;
+			cout << Q_Clauses.top().unprocessed_words.back()->name << endl;
 		}
+		
 		//in the case that the clause has wrapped up too many extra words
-		if (Q_Clauses.front().run_on)
+		if (Q_Clauses.top().run_on)
 		{
 			cout << "making new clause" << endl;
-			Clauses.push_back(Q_Clauses.front());
+			Clauses.push_back(Q_Clauses.top());
 			Q_Clauses.pop();
 				//if this clause was nested in another clause, we can just go back to looking at the previous clause.
 			if (!Q_Clauses.empty())
 			{
-				Q_Clauses.front().unprocessed_words.push_back(sent_unprocessed_words[index]);
-				Q_Clauses.front().tokens_PoS_Label.resize(Q_Clauses.front().unprocessed_words.size());
-				Q_Clauses.front().tokens_PoS_Label.back() = tokens_PoS_Label[index];
+				Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
+				Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
+				Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
 			}
 			//if it was removed from the previous clause, we can append a new clause and begin again.
 			else
@@ -811,23 +822,25 @@ void Sentence::split()
 				Clause* C = new Clause;
 				C->indep = true;
 				Q_Clauses.push(*C);
-				Q_Clauses.front().unprocessed_words.push_back(sent_unprocessed_words[index]);
-				Q_Clauses.front().tokens_PoS_Label.resize(Q_Clauses.front().unprocessed_words.size());
-				Q_Clauses.front().tokens_PoS_Label.back() = tokens_PoS_Label[index];
+				Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
+				Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
+				Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
 			}
 		}
+		
 		//if it is the last word in the sentence, we can just wrap up the remaining clauses.
 		if (index + 1 == sent_unprocessed_words.size())
 		{
+			cout << "clearing remaining clauses" << endl;
 			while (!Q_Clauses.empty())
 			{
-				Clauses.push_back(Q_Clauses.front());
+				Clauses.push_back(Q_Clauses.top());
 				Q_Clauses.pop();
 			}
 		}
 		//clear the clause to avoid duplicate entries
 		else
-			Q_Clauses.front().clause.clear();
+			Q_Clauses.top().clause.clear();
 	}
 
 	cout << "Number of Clauses in sentence: " << Clauses.size() << endl;
