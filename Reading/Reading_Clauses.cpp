@@ -2,8 +2,7 @@
 //driver function
 int main()
 {
-	Sentence C("After we come, he will go.");
-	C.split();
+	Story C("The alligator went, and I saw him.");
 
 	return 0;
 }

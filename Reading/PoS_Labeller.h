@@ -10,28 +10,28 @@ vector <string> unknown_words;
 //structure that stores all the words from CSV files created in Python environment
 struct Vocabulary
 {
-	//initialize a csv reader to read documents
-	csvreader reader;
 
+	//initialize a csv reader to read documents
+	static csvreader reader;
 	//containers for the different categories of words
-	vector<Trie> verbs_1_s;
-	vector<string> verbs_header;
-	vector<Trie> verbs_2_s;
-	vector<Trie> verbs_3_s;
-	vector<Trie> verbs_1_p;
-	vector<Trie>verbs_2_p;
-	vector<Trie> verbs_3_p;
-	Trie nouns_s;
-	Trie nouns_p;
-	Trie prepositions;
-	Trie social;
-	Trie adjectives;
-	Trie adverbs;
-	vector<Trie> pronouns;
-	Trie conjunctions;
-	Trie modal_verbs;
-	Trie articles;
-	Trie subjunctive_conjunctions;
+	static vector<Trie> verbs_1_s;
+	static vector<string> verbs_header;
+	static vector<Trie> verbs_2_s;
+	static vector<Trie> verbs_3_s;
+	static vector<Trie> verbs_1_p;
+	static vector<Trie>verbs_2_p;
+	static vector<Trie> verbs_3_p;
+	static Trie nouns_s;
+	static Trie nouns_p;
+	static Trie prepositions;
+	static Trie social;
+	static Trie adjectives;
+	static Trie adverbs;
+	static vector<Trie> pronouns;
+	static Trie conjunctions;
+	static Trie modal_verbs;
+	static Trie articles;
+	static Trie subjunctive_conjunctions;
 	
 	//list of all words in the text
 	vector <string> tokens;
@@ -40,10 +40,10 @@ struct Vocabulary
 	vector <vector <string> > tokens_PoS_Label;
 
 	//map containing all the words of a Part of Speech type together, they're connected to the name of the trie
-	map <string, Trie> Words;
+	static map <string, Trie> Words;
 
 	//function that grabs the words found in the Python environment and places them into the correct Tries
-	void Learn()
+	static void Learn()
 	{
 		//below part is to gather list of words from the CSV files
 		//----------------------------------------------------------
@@ -194,11 +194,6 @@ struct Vocabulary
 			}
 		}
 
-		//creating a dictionary for the verbs
-		map <string, vector<Trie>> Verbs = {
-			{ "verbs1s",verbs_1_s },{ "verbs2s",verbs_2_s },{ "verbs3s",verbs_3_s },{ "verbs1p",verbs_1_p },
-			{ "verbs2p",verbs_2_p },{ "verbs3p",verbs_3_p }
-		};
 		//creating a dictionary for each of the categories of words
 		Words =
 		{
@@ -248,24 +243,30 @@ struct Vocabulary
 		};
 	}
 
-	//How I am planning on parsing through the sentence:
-	//as many of you know, there are sometimes multiple words that are connected. Obvious examples of this 
-	//include proper nouns, such as names, and also different tenses of each verb. While the words themselves
-	//are separate, the idea they represent doesn't make sense unless they are grouped. To combat this, I'm
-	//going to run an algorithm that gets the longest chain of words in the trie and group those words together.
+	/*
+	-------------------------------------------------------------------------------------------------------------------------------
+	-------------------------------------------------------------------------------------------------------------------------------
+	How I am planning on parsing through the sentence:
+	as many of you know, there are sometimes multiple words that are connected. Obvious examples of this 
+	include proper nouns, such as names, and also different tenses of each verb. While the words themselves
+	are separate, the idea they represent doesn't make sense unless they are grouped. To combat this, I'm
+	going to run an algorithm that gets the longest chain of words in the trie and group those words together.
 
-	//For instance, in the sentence 'the car is blue.' In this case, we would look for the longest chain of words
-	//that we can find on the initial segment of the string - in this case that is 'the'. After we process that word,
-	//we move onto 'car is blue' segment. We find that 'car' is the longest segment, and continue to 'is', then 'blue'.
-	//For a simple sentence like that, it is not any different than splitting the whole string into a word tokens. However,
-	//in the case of 'Harry Potter is a wizard', it would find 'Harry Potter' [as opposed to just 'Harry' and 'Potter'] 
-	//and then move onto the rest of the sentence. This can extrapolate further, as in 'the car is on the Golden Gate Bridge'
-	//and such like examples.
+	For instance, in the sentence 'the car is blue.' In this case, we would look for the longest chain of words
+	that we can find on the initial segment of the string - in this case that is 'the'. After we process that word,
+	we move onto 'car is blue' segment. We find that 'car' is the longest segment, and continue to 'is', then 'blue'.
+	For a simple sentence like that, it is not any different than splitting the whole string into a word tokens. However,
+	in the case of 'Harry Potter is a wizard', it would find 'Harry Potter' [as opposed to just 'Harry' and 'Potter'] 
+	and then move onto the rest of the sentence. This can extrapolate further, as in 'the car is on the Golden Gate Bridge'
+	and such like examples.
 
-	//In essence, what I'm trying to do is get a string that processes the longest chain on the trie as it can go on the 
-	//string,then the string will enter the trie again and again till it is completely processed.
+	In essence, what I'm trying to do is get a string that processes the longest chain on the trie as it can go on the 
+	string,then the string will enter the trie again and again till it is completely processed.
 
-	//function will output the word and then the label it comes with.
+	function will output the word and then the label it comes with.
+	-------------------------------------------------------------------------------------------------------------------------------
+	-------------------------------------------------------------------------------------------------------------------------------
+	*/
 	void Label_Text_PoS(const string& S)
 	{
 		//container for each of the words
@@ -363,3 +364,4 @@ struct Vocabulary
 		}
 	}
 };
+
