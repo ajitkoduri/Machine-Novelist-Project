@@ -40,7 +40,6 @@ struct Graph_Word
 
 	//vertices of graph
 	vector <Graph_Word*> descriptors;
-
 	Graph_Word(string n) : name(n) {};
 };
 
@@ -226,6 +225,23 @@ for words in the clause,removing words that have been classified more than once.
 
 void Clause::Make_Graph()
 {
+	/*
+	----------------------------------------------------------------------------------------------------------------------------------------------------------
+	----------------------------------------------------------------------------------------------------------------------------------------------------------
+	we have multiple switches that activate in order to tell if a list of nouns/verbs is being made or if a comma signifies something else.
+	this is a common problem in every day language where the comma can only be accurately identified only after the sequence of events is done!
+	In this case, n_is_listing is a switch that describes if the computer should look out for another noun or not. n_end_list is a switch
+	that puts a cap on the noun list, saying that the list is not continuing. These are pretty common problems if you have a preposition start the
+	clause - it would be hard to decide when the prepositional phrase ended and when the clause began if you didn't use the conjunction 'and' or 'or'.
+	That's the same thought process here. The verb switches are the same, only that the nouns (subjects, indirect objects, and direct objects) are
+	processed automatically - any noun not in a prepositional phrase before the verb is a subject (even if it is an appositive) and any noun afterwards
+	can be determined to be an indirect or direct object based on whether the nouns are still listing. I added an additional switch, v_ended, to signify
+	when the verbs list is done so that way any future verbs after the objects have been read can be labelled as not part of the same clause.
+
+	The obj_full switch just determines if the indirect objects are finished or if they are still more indirect objects.
+	----------------------------------------------------------------------------------------------------------------------------------------------------------
+	----------------------------------------------------------------------------------------------------------------------------------------------------------
+	*/
 	//switch to see if the objects are finished listing.
 	bool obj_full = false;
 	//switch to see if a prepositional phrase is there or not
@@ -367,6 +383,7 @@ void Clause::Make_Graph()
 				{
 					if (contains(Saved_PoS_Label.back(), "prep"))
 					{
+						indep = true;
 						prep_avail = false;
 
 						while (!stored_words_adj.empty())
@@ -559,6 +576,18 @@ void Clause::Process_Graph()
 		cout << "incorrect ending!" << endl;
 		return;
 	}
+
+	//if the beginning of the clause is a subordinate conjunction, we can append all the subjects of the clause as desciptors of the
+	//subordinate conjunction. This gives us the ability to connect the rest of the clause as a descriptor for the subordinate conjunction
+	//or relative pronoun.
+	if (contains(tokens_PoS_Label[0], "sub_con"))
+	{
+		for (int subj_ind = 0; subj_ind < clause.subj.size(); subj_ind++)
+		{
+			unprocessed_words[0]->descriptors.push_back(&clause.subj[subj_ind]);
+		}
+	}
+
 	//if there are prepositions still not completed, we should interpret them as adverbs describing all the verbs.
 	while (!prep_in_clause.empty())
 	{
@@ -645,9 +674,16 @@ Sentence structure, will contain multiple clauses.
 */
 struct Sentence : public Clause
 {
+	//text of the sentence
 	string text;
+
+	//list of all clauses in sentence
 	vector <Clause> Clauses;
+	
+	//word tokens in the whole sentence
 	vector <Graph_Word*> sent_unprocessed_words;
+	
+	//Constructors for each sentence.
 	Sentence() {}
 	Sentence(string s)
 	{
@@ -673,20 +709,67 @@ void Sentence::split()
 		Graph_Word* unproc_word = new Graph_Word(tokens[index]);
 		sent_unprocessed_words.push_back(unproc_word);
 	}
-		//now to algorithmize the splitting of each clause. For clauses in English, an easy algorithm is to keep
+	//now to algorithmize the splitting of each clause. For clauses in English, an easy algorithm is to keep
 	//attaching words to the latest clause till it is complete and then keep doing so till it is not a run-on.
 	//That is what we'll be doing - when the sub-ordinate conjunction arises, a dependent clause is coming.
+
+
+	/*
+	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	Q_Clauses.front().unprocessed_words.push_back(sent_unprocessed_words[index]); <--- line to add a word to the clause
+
+	Q_Clauses.front().tokens_PoS_Label.resize(Q_Clauses.front().unprocessed_words.size()); <-- line that resizes the total number of parts of speech labels 
+																							   for each word to fit the clause appropriately.
+
+	Q_Clauses.front().tokens_PoS_Label.back() = tokens_PoS_Label[index]; <--- line to add the part of speech labels for that word into the clause
+	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	*/
 	for (int index = 0; index < sent_unprocessed_words.size(); index++)
 	{
 		//if a period is there, it is the end of the sentence.
 		if (sent_unprocessed_words[index]->name == ".") {
 			return;
 		}
-		//subordinate conjunctions 
+		//subordinate conjunctions case, we take a greedy approach of starting a new clause and labelling it a dependent one.
+		//In the case of another independent clause, we can just attach a make a new clause to represent that.
 		if (contains(tokens_PoS_Label[index], "sub_con") || Q_Clauses.empty())
 		{
+
 			Clause* C = new Clause;
+			C->indep = false;
+			
+			if (!Q_Clauses.empty())
+			{
+				//if the clause is adjectival, it must be preceded by a noun (if the preceding clause is still incomplete).
+				if (contains(tokens_PoS_Label[index - 1], "noun") && index > 0)
+				{
+					Q_Clauses.front().unprocessed_words[index - 1]->descriptors.push_back(sent_unprocessed_words[index]);
+				}
+				//if the clause is a noun, it will either be preceded by a verb or an adjective. If it is precede by an adjective
+				//it could either be the subject or an object of the clause.
+				else if (contains(tokens_PoS_Label[index - 1], "adj") && index > 0)
+				{
+					//if there are no verbs that have been passed, it's got to be a subject of the clause.
+					if (Q_Clauses.front().clause.verbs.empty())
+					{
+						Q_Clauses.front().clause.subj.push_back(*sent_unprocessed_words[index]);
+					}
+					//if there are verbs that have been passed, it's got to be an object.
+					else
+					{
+						Q_Clauses.front().clause.noun.push(*sent_unprocessed_words[index]);
+					}
+				}
+				//in the case that the preceding word is a verb, it must be an object, so we push it through there.
+				else if (contains(tokens_PoS_Label[index - 1], "verb") && index > 0)
+				{
+					Q_Clauses.front().clause.noun.push(*sent_unprocessed_words[index]);
+				}
+			}
 			cout << "making new clause" << endl;
+
 			Q_Clauses.push(*C);
 			Q_Clauses.front().unprocessed_words.push_back(sent_unprocessed_words[index]);
 			Q_Clauses.front().tokens_PoS_Label.resize(Q_Clauses.front().unprocessed_words.size());
@@ -721,6 +804,7 @@ void Sentence::split()
 			else
 			{
 				Clause* C = new Clause;
+				C->indep = true;
 				Q_Clauses.push(*C);
 				Q_Clauses.front().unprocessed_words.push_back(sent_unprocessed_words[index]);
 				Q_Clauses.front().tokens_PoS_Label.resize(Q_Clauses.front().unprocessed_words.size());
@@ -741,9 +825,10 @@ void Sentence::split()
 			Q_Clauses.front().clause.clear();
 	}
 
-	cout << Clauses.size() << endl;
+	cout << "Number of Clauses in sentence: " << Clauses.size() << endl;
 }
 
+//structure to hold all the sentences in the text.
 class Story : public Sentence
 {
 private:
@@ -751,6 +836,8 @@ private:
 	vector <Sentence> Sentences;
 	
 public:
+	//function that will split the text into multiple sentences. The sentences will then be processed 
+	//through the sentence data structure.
 	void split_into_sentences();
 	Story() {}
 	Story(string s)
@@ -775,5 +862,5 @@ void Story::split_into_sentences()
 			sent_start_ind = text_ind + 1;
 		}
 	}
-	cout << Sentences.size() << endl;
+	cout << "Number of sentences in story: " <<  Sentences.size() << endl;
 }
