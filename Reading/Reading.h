@@ -116,6 +116,35 @@ struct Clause : public Vocabulary
 	vector <vector <string> > Saved_PoS_Label;
 	int switch_index;
 
+	/*
+	----------------------------------------------------------------------------------------------------------------------------------------------------------
+	----------------------------------------------------------------------------------------------------------------------------------------------------------
+	we have multiple switches that activate in order to tell if a list of nouns/verbs is being made or if a comma signifies something else.
+	this is a common problem in every day language where the comma can only be accurately identified only after the sequence of events is done!
+	In this case, n_is_listing is a switch that describes if the computer should look out for another noun or not. n_end_list is a switch
+	that puts a cap on the noun list, saying that the list is not continuing. These are pretty common problems if you have a preposition start the
+	clause - it would be hard to decide when the prepositional phrase ended and when the clause began if you didn't use the conjunction 'and' or 'or'.
+	That's the same thought process here. The verb switches are the same, only that the nouns (subjects, indirect objects, and direct objects) are
+	processed automatically - any noun not in a prepositional phrase before the verb is a subject (even if it is an appositive) and any noun afterwards
+	can be determined to be an indirect or direct object based on whether the nouns are still listing. I added an additional switch, v_ended, to signify
+	when the verbs list is done so that way any future verbs after the objects have been read can be labelled as not part of the same clause.
+
+	The obj_full switch just determines if the indirect objects are finished or if they are still more indirect objects.
+	----------------------------------------------------------------------------------------------------------------------------------------------------------
+	----------------------------------------------------------------------------------------------------------------------------------------------------------
+	*/
+	//switch to see if the objects are finished listing.
+	bool obj_full = false;
+	//switch to see if a prepositional phrase is there or not
+	bool prep_avail = false;
+	//switches to control whether the sentence is listing a series of words or not.
+	bool n_is_listing = false;
+	bool n_end_list = false;
+
+	bool v_is_listing = false;
+	bool v_end_list = false;
+	bool v_ended = false;
+
 	Clause() {};
 
 	Clause(string s)
@@ -225,36 +254,12 @@ for words in the clause,removing words that have been classified more than once.
 
 void Clause::Make_Graph()
 {
-	/*
-	----------------------------------------------------------------------------------------------------------------------------------------------------------
-	----------------------------------------------------------------------------------------------------------------------------------------------------------
-	we have multiple switches that activate in order to tell if a list of nouns/verbs is being made or if a comma signifies something else.
-	this is a common problem in every day language where the comma can only be accurately identified only after the sequence of events is done!
-	In this case, n_is_listing is a switch that describes if the computer should look out for another noun or not. n_end_list is a switch
-	that puts a cap on the noun list, saying that the list is not continuing. These are pretty common problems if you have a preposition start the
-	clause - it would be hard to decide when the prepositional phrase ended and when the clause began if you didn't use the conjunction 'and' or 'or'.
-	That's the same thought process here. The verb switches are the same, only that the nouns (subjects, indirect objects, and direct objects) are
-	processed automatically - any noun not in a prepositional phrase before the verb is a subject (even if it is an appositive) and any noun afterwards
-	can be determined to be an indirect or direct object based on whether the nouns are still listing. I added an additional switch, v_ended, to signify
-	when the verbs list is done so that way any future verbs after the objects have been read can be labelled as not part of the same clause.
-
-	The obj_full switch just determines if the indirect objects are finished or if they are still more indirect objects.
-	----------------------------------------------------------------------------------------------------------------------------------------------------------
-	----------------------------------------------------------------------------------------------------------------------------------------------------------
-	*/
-	//switch to see if the objects are finished listing.
-	bool obj_full = false;
-	//switch to see if a prepositional phrase is there or not
-	bool prep_avail = false;
-	run_on = false;
-	//switches to control whether the sentence is listing a series of words or not.
-	bool n_is_listing = false;
-	bool n_end_list = false;
-
-	bool v_is_listing = false;
-	bool v_end_list = false;
-	bool v_ended = false;
-
+	//if there is a list ongoing, it can't be a full clause
+	if (n_is_listing || v_is_listing)
+	{
+		complete = false;
+		run_on = true;
+	}
 	//w_ind is the word index (saving room for clarity)
 	for (int w_ind = 0; w_ind < unprocessed_words.size(); w_ind++)
 	{
