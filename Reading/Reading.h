@@ -409,7 +409,7 @@ void Clause::Make_Graph()
 						Make_Graph();
 						return;
 					}
-					else
+					else if (indep)
 					{
 						clause.subj.push_back(Graph_Word("you"));
 					}
@@ -688,6 +688,7 @@ struct Sentence : public Clause
 {
 	//text of the sentence
 	string text;
+	bool question;
 
 	//list of all clauses in sentence
 	vector <Clause> Clauses;
@@ -702,10 +703,16 @@ struct Sentence : public Clause
 		text = s;
 		split();
 	}
-
+	void Question();
 	//function to split text into clauses.
 	void split();
 };
+//function to re-configure a question into a sentence structure
+void Sentence::Question()
+{
+
+	return;
+}
 
 void Sentence::split()
 {
@@ -714,7 +721,7 @@ void Sentence::split()
 	Vocabulary::Learn();
 	Process_Text(text);
 	Label_Text_PoS(clause_statement);
-
+	queue <Graph_Word> saved_advs;
 	//setting each of the tokens to be processed as a word
 	for (int index = 0; index < tokens.size(); index++)
 	{
@@ -740,8 +747,17 @@ void Sentence::split()
 	*/
 	for (int index = 0; index < sent_unprocessed_words.size(); index++)
 	{
-		//if a period is there, it is the end of the sentence.
-		if (sent_unprocessed_words[index]->name == ".") {
+		//if a period or a exclamation mark is there, it is the end of the sentence.
+		if (sent_unprocessed_words[index]->name == "." || sent_unprocessed_words[index]->name == "!") 
+		{
+			question = false;
+			return;
+		}
+		//question marks are the end of the sentence too, but they need to be re-configured to be understood in the normal subject-action-object context. 
+		if (sent_unprocessed_words[index]->name == "?")
+		{
+			question = true;
+			Question();
 			return;
 		}
 		//subordinate conjunctions case, we take a greedy approach of starting a new clause and labelling it a dependent one.
@@ -753,8 +769,25 @@ void Sentence::split()
 			
 			if (!Q_Clauses.empty())
 			{
+				//if the clause is an adverbial one, 
+				if (contains(tokens_PoS_Label[index], "adv"))
+				{
+					//we can append it to the independent clause.
+					if (Q_Clauses.top().indep)
+					{
+						for (int i = 0; i < Q_Clauses.top().clause.verbs.size(); i++)
+						{
+							Q_Clauses.top().clause.verbs[i].descriptors.push_back(sent_unprocessed_words[index]);
+						}
+					}
+					//or, if the independent clause has not been found yet, we can save it.
+					else
+					{
+						saved_advs.push(*sent_unprocessed_words[index]);
+					}
+				}
 				//if the clause is adjectival, it must be preceded by a noun (if the preceding clause is still incomplete).
-				if (contains(tokens_PoS_Label[index - 1], "noun") && index > 0)
+				else if (contains(tokens_PoS_Label[index - 1], "noun") && index > 0)
 				{
 					cout << "adding clause as a adjective" << endl;
 					Q_Clauses.top().unprocessed_words[index - 1]->descriptors.push_back(sent_unprocessed_words[index]);
@@ -804,7 +837,7 @@ void Sentence::split()
 		}
 		
 		//in the case that the clause has wrapped up too many extra words
-		if (Q_Clauses.top().run_on)
+		if (Q_Clauses.top().run_on || sent_unprocessed_words[index]->name == ";")
 		{
 			cout << "making new clause" << endl;
 			Clauses.push_back(Q_Clauses.top());
@@ -821,6 +854,12 @@ void Sentence::split()
 			{
 				Clause* C = new Clause;
 				C->indep = true;
+				//save all the adverbs
+				while (!saved_advs.empty())
+				{
+					C->stored_words_adv.push(&saved_advs.front());
+					saved_advs.pop();
+				}
 				Q_Clauses.push(*C);
 				Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
 				Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
@@ -872,7 +911,7 @@ void Story::split_into_sentences()
 
 	for (int text_ind = 0; text_ind < text.size(); text_ind++)
 	{
-		if (text[text_ind] == '.')
+		if (text[text_ind] == '.' || text[text_ind] == '!' || text[text_ind] == '?' || text[text_ind] == '"')
 		{
 			sent_text.push_back(text.substr(sent_start_ind, text_ind - sent_start_ind));
 			Sentence S(sent_text.back());

@@ -76,20 +76,10 @@ struct Vocabulary
 		reader.read("C:\\Users\\kodur\\subjunctive_con.csv", false);					//read singular subjunctive conjunctions file
 		vector <string> subjunctive_con_vec = reader.data[0];							//data in the 1st column
 
-		reader.read("C:\\Users\\kodur\\nouns_s.csv", false);							//read singular nouns file
+		reader.read("C:\\Users\\kodur\\nouns.csv", false);								//read singular nouns file
 		vector <string> nouns_s_vec = reader.data[0];									//nouns are put on the 1st column
+		vector <string> nouns_p_vec = reader.data[1];
 
-		reader.read("C:\\Users\\kodur\\nouns_p.csv", false);							//read plural nouns file
-																						//didn't initially create a plural nouns 
-		if (!reader.data.empty()) {														//file, so check if it exists yet. Nouns
-			vector <string> nouns_p_vec = reader.data[0];								//are put on the 1st column.
-
-																						//if it does exist, gather the plural nouns into their own trie
-			for (int noun_p_word = 0; noun_p_word < nouns_p_vec.size(); noun_p_word++)
-			{
-				nouns_p.add(nouns_p_vec[noun_p_word]);
-			}
-		}
 		reader.read("C:\\Users\\kodur\\prepositions.csv", false);						//read prepositions file
 		vector <string> prep_vec = reader.data[0];										//prepositions are put on the 1st column
 
@@ -141,6 +131,11 @@ struct Vocabulary
 		for (int noun_s_word = 0; noun_s_word < nouns_s_vec.size(); noun_s_word++)
 		{
 			nouns_s.add(nouns_s_vec[noun_s_word]);
+		}
+		//gather the plural nouns
+		for (int noun_p_word = 0; noun_p_word < nouns_p_vec.size(); noun_p_word++)
+		{
+			nouns_p.add(nouns_p_vec[noun_p_word]);
 		}
 		//gather the prepositions
 		for (int prep_word = 0; prep_word < prep_vec.size(); prep_word++)
