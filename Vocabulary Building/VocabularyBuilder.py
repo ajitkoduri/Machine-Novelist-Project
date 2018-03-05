@@ -26,27 +26,23 @@ beginning_verbs = ['have','eat','be','drink', 'go', 'stop', 'run', 'jump', 'walk
 verbs_learned = list()
 
 #Add each conjugation of each verb in the list to the database, seperated by 1st person, 2nd person, and 3rd person
-for element in beginning_verbs:
+#updated as they updated their pages for each verb conjugation
+for element in verbs_to_find:
     verb_conjugations = urlopen('http://conjugator.reverso.net/conjugation-english-verb-'+element+'.html')
     soup = BeautifulSoup(verb_conjugations,"html5lib")
     Verbs = list()
     tenses = list()
     pov = list()
-    i=0
-    for perspectives in soup.find_all('div', attrs={'class': 'responsive-sub responsive-sub-50'}):
-        if i < 2:
-            Verbs.append(perspectives.get_text(" ",strip=True))
-            tense_perspective = re.split('(?:^|(?<= ))(I|you|he/she/it|we|they)(?:(?= )|$)',Verbs[-1])
-            for verbs in tense_perspective:
-                verbs = verbs.strip()
-            tenses.append(tense_perspective[0])
-            pov.append(tense_perspective[2::2])
-        i=i+1
-    for perspectives in soup.find_all('div', attrs={'class': 'responsive-sub responsive-sub-25'}):
+
+    for perspectives in soup.find_all('div', attrs={'class': 'blue-box-wrap'}):
         Verbs.append(perspectives.get_text(" ",strip=True))
         tense_perspective = re.split('(?:^|(?<= ))(I|you|he/she/it|we|they)(?:(?= )|$)',Verbs[-1])
+        for verbs in tense_perspective:
+            verbs = verbs.strip()
         tenses.append(tense_perspective[0])
         pov.append(tense_perspective[2::2])
+        tenses = tenses[:12]
+        pov = pov[:12]
 
     pov = np.array(pov).transpose()
     pov = list(pov)
