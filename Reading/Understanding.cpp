@@ -6,6 +6,8 @@
 #include "Reading.h"
 #include <fstream>
 
+
+//have to make infinitives, gerunds, participles, and contractions databases as well.
 int main()
 {
 	//sets the ascii values correctly.
@@ -22,8 +24,6 @@ int main()
 			story_text += line;
 		}
 	}
-
-	cout << story_text << endl;
 	
 	//building a story out of the text that has been read
 	Story S(story_text);

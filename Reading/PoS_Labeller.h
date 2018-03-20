@@ -55,44 +55,44 @@ struct Vocabulary
 			"nor", "but", "or", "yet" };						//so I just wrote it in here. They were taken from
 																//the acronym FANBOYS for co-ordinating conjunctions.
 
-		reader.read("C:\\Users\\kodur\\verbs_1_s.csv");			//read 1st Person Singular verbs file
+		reader.read("verbs_1_s.csv");							//read 1st Person Singular verbs file
 		vector <vector <string>> verbs_1s_2dvec = reader.data;
 		vector <string> verbs_header = reader.heading;			//get the header for each file
 
-		reader.read("C:\\Users\\kodur\\verbs_2_s.csv");			//read 2nd Person Singular verbs file
+		reader.read("verbs_2_s.csv");							//read 2nd Person Singular verbs file
 		vector <vector <string>> verbs_2s_2dvec = reader.data;
-		reader.read("C:\\Users\\kodur\\verbs_3_s.csv");			//read 3rd Person Singular verbs file
+		reader.read("verbs_3_s.csv");							//read 3rd Person Singular verbs file
 		vector <vector <string>> verbs_3s_2dvec = reader.data;
-		reader.read("C:\\Users\\kodur\\verbs_1_p.csv");			//read 1st Person Plural verbs file
+		reader.read("verbs_1_p.csv");							//read 1st Person Plural verbs file
 		vector <vector <string>> verbs_1p_2dvec = reader.data;
-		reader.read("C:\\Users\\kodur\\verbs_2_p.csv");			//read 2nd Person Plural verbs file
+		reader.read("verbs_2_p.csv");							//read 2nd Person Plural verbs file
 		vector <vector <string>> verbs_2p_2dvec = reader.data;
-		reader.read("C:\\Users\\kodur\\verbs_3_p.csv");			//read 3rd Person Plural verbs file
+		reader.read("verbs_3_p.csv");							//read 3rd Person Plural verbs file
 		vector <vector <string>> verbs_3p_2dvec = reader.data;
 
 		vector <string> m_verbs = { "can","could","may", "might",						//also I forgot to add a
 			"must", "shall","should", "will", "would" };								//databank for modal verbs
 
-		reader.read("C:\\Users\\kodur\\subjunctive_con.csv", false);					//read singular subjunctive conjunctions file
+		reader.read("subjunctive_con.csv", false);										//read singular subjunctive conjunctions file
 		vector <string> subjunctive_con_vec = reader.data[0];							//data in the 1st column
 
-		reader.read("C:\\Users\\kodur\\nouns.csv", false);								//read singular nouns file
+		reader.read("nouns.csv", false);												//read singular nouns file
 		vector <string> nouns_s_vec = reader.data[0];									//nouns are put on the 1st column
 		vector <string> nouns_p_vec = reader.data[1];
 
-		reader.read("C:\\Users\\kodur\\prepositions.csv", false);						//read prepositions file
+		reader.read("prepositions.csv", false);											//read prepositions file
 		vector <string> prep_vec = reader.data[0];										//prepositions are put on the 1st column
 
-		reader.read("C:\\Users\\kodur\\social.csv", false);								//read social cues file
+		reader.read("social.csv", false);												//read social cues file
 		vector <string> soc_vec = reader.data[0];										//social cues only put on the first column
 
-		reader.read("C:\\Users\\kodur\\adj.csv", false);								//read adjectives file
+		reader.read("adj.csv", false);													//read adjectives file
 		vector <string> adj_vec = reader.data[0];										//adjectives only put on the first column
 
-		reader.read("C:\\Users\\kodur\\adv.csv", false);								//read adverbs file
+		reader.read("adv.csv", false);													//read adverbs file
 		vector <string> adv_vec = reader.data[0];										//adverbs only put on the first column
 
-		reader.read("C:\\Users\\kodur\\Pronouns.csv");											//read pronouns file
+		reader.read("Pronouns.csv");															//read pronouns file
 		vector <vector <string>> Pronouns_2dvec = reader.data;									//pronouns excluding row index
 																								//placed by pandas DataFrame
 

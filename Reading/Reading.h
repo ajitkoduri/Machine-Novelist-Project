@@ -333,7 +333,7 @@ void Clause::Make_Graph()
 			tokens_PoS_Label[w_ind].clear();
 			tokens_PoS_Label[w_ind].push_back("adv");
 			//in the case the following word is also an adverb, just append the adverb as a modifier to the next adverb.
-			if (w_ind + 1 != unprocessed_words.size())
+			if (w_ind + 1 < unprocessed_words.size())
 			{
 				if (contains(tokens_PoS_Label[w_ind + 1], "adv"))
 				{
@@ -360,7 +360,7 @@ void Clause::Make_Graph()
 		if (contains(tokens_PoS_Label[w_ind], "adj"))
 		{
 			//if the text is a predicate adjective, I'll store it as a noun and have it treated as such. Otherwise, it'll be an incomplete sentence.
-			if (contains(tokens_PoS_Label[w_ind], "noun") && w_ind == unprocessed_words.size() - 1)
+			if (w_ind == unprocessed_words.size() - 1 && contains(tokens_PoS_Label[w_ind], "noun"))
 			{
 				tokens_PoS_Label[w_ind].clear();
 				tokens_PoS_Label[w_ind].push_back("noun");
@@ -369,7 +369,7 @@ void Clause::Make_Graph()
 			tokens_PoS_Label[w_ind].clear();
 			tokens_PoS_Label[w_ind].push_back("adj");
 			//in the case the following word is also an adverb, just append the adverb as a modifier to the next adverb.
-			if (contains(tokens_PoS_Label[w_ind + 1], "noun"))
+			if (w_ind < unprocessed_words.size() - 1 && contains(tokens_PoS_Label[w_ind + 1], "noun"))
 			{
 				unprocessed_words[w_ind + 1]->descriptors.push_back(unprocessed_words[w_ind]);
 			}
@@ -394,7 +394,7 @@ void Clause::Make_Graph()
 
 				if (clause.subj.empty())
 				{
-					if (contains(Saved_PoS_Label.back(), "prep") && !Saved_PoS_Label.empty())
+					if (!Saved_PoS_Label.empty() && contains(Saved_PoS_Label.back(), "prep") )
 					{
 						indep = true;
 						prep_avail = false;
