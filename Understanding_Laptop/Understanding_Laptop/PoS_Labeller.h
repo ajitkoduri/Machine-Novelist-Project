@@ -121,7 +121,6 @@ struct Vocabulary
 
 		//the columns of the 2-D vector of verbs are the tenses. Each of the words are stored as a specific verb in the total array.
 
-
 		for (int tense = 0; tense < verbs_1s_2dvec.size(); tense++)							  //iterate through each of the tenses
 		{
 			for (int verb_word = 0; verb_word < verbs_1s_2dvec[tense].size(); verb_word++) //iterate through each of the words in list
@@ -186,6 +185,7 @@ struct Vocabulary
 			modal_verbs.add(m_verbs[m_verb_word]);
 		}
 		//gather the verbals
+		
 		for (int verbal_word = 0; verbal_word < verbals_ger_vec.size(); verbal_word++)
 		{
 			participles.add(verbals_part_vec[verbal_word]);

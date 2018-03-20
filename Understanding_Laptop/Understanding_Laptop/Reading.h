@@ -28,6 +28,10 @@ Trie Vocabulary::conjunctions;
 Trie Vocabulary::modal_verbs;
 Trie Vocabulary::articles;
 Trie Vocabulary::subjunctive_conjunctions;
+Trie Vocabulary::infinitives;
+Trie Vocabulary::gerunds;
+Trie Vocabulary::participles;
+
 map <string, Trie> Vocabulary::Words;
 
 //nouns can be subjects or objects. Verbs connect subjects to an object or connect the subject to itself.
