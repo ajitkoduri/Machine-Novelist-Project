@@ -32,6 +32,9 @@ struct Vocabulary
 	static Trie modal_verbs;
 	static Trie articles;
 	static Trie subjunctive_conjunctions;
+	static Trie infinitives;
+	static Trie gerunds;
+	static Trie participles;
 	
 	//list of all words in the text
 	vector <string> tokens;
@@ -92,6 +95,11 @@ struct Vocabulary
 		reader.read("adv.csv", false);													//read adverbs file
 		vector <string> adv_vec = reader.data[0];										//adverbs only put on the first column
 
+		reader.read("verbals.csv");														//reading verbals file.
+		vector <string> verbals_part_vec = reader.data[0];								//participle data
+		vector <string> verbals_inf_vec = reader.data[1];								//infinitive data
+		vector <string> verbals_ger_vec = reader.data[2];								//gerund data
+
 		reader.read("Pronouns.csv");															//read pronouns file
 		vector <vector <string>> Pronouns_2dvec = reader.data;									//pronouns excluding row index
 																								//placed by pandas DataFrame
@@ -112,7 +120,6 @@ struct Vocabulary
 		pronouns.resize(Pronouns_2dvec.size());
 
 		//the columns of the 2-D vector of verbs are the tenses. Each of the words are stored as a specific verb in the total array.
-
 
 		for (int tense = 0; tense < verbs_1s_2dvec.size(); tense++)							  //iterate through each of the tenses
 		{
@@ -177,6 +184,14 @@ struct Vocabulary
 		{
 			modal_verbs.add(m_verbs[m_verb_word]);
 		}
+		//gather the verbals
+		
+		for (int verbal_word = 0; verbal_word < verbals_ger_vec.size(); verbal_word++)
+		{
+			participles.add(verbals_part_vec[verbal_word]);
+			infinitives.add(verbals_inf_vec[verbal_word]);
+			gerunds.add(verbals_ger_vec[verbal_word]);
+		}
 
 		//columns of the 2d array of Pronouns are the different types of ways of using a pronoun, and also separated by plural and 
 		//singular. Each element inside refers to the specific pronoun held inside the column.
@@ -233,8 +248,9 @@ struct Vocabulary
 			{ "verbs3p_pres_p", verbs_3_p[3] },{ "verbs3p_fut", verbs_3_p[4] },{ "verbs3p_fut_p", verbs_3_p[5] },
 			{ "verbs3p_past_c", verbs_3_p[6] },{ "verbs3p_past_p", verbs_3_p[7] },{ "verbs3p_fut_c", verbs_3_p[8] },
 			{ "verbs3p_pres_p_c", verbs_3_p[9] },{ "verbs3p_past_p_c", verbs_3_p[10] },{ "verbs3p_fut_p_c", verbs_3_p[11] },
-			//modal verbs and articles
-			{ "modal_verbs", modal_verbs }, {"article", articles}
+			//modal verbs, articles, and verbals
+			{ "modal_verbs", modal_verbs }, {"article", articles}, {"participles", participles}, {"infinitives", infinitives},
+			{"gerunds", gerunds}
 		};
 	}
 

@@ -28,6 +28,10 @@ Trie Vocabulary::conjunctions;
 Trie Vocabulary::modal_verbs;
 Trie Vocabulary::articles;
 Trie Vocabulary::subjunctive_conjunctions;
+Trie Vocabulary::infinitives;
+Trie Vocabulary::gerunds;
+Trie Vocabulary::participles;
+
 map <string, Trie> Vocabulary::Words;
 
 //nouns can be subjects or objects. Verbs connect subjects to an object or connect the subject to itself.
@@ -137,6 +141,7 @@ struct Clause : public Vocabulary
 	bool obj_full;
 	//switch to see if a prepositional phrase is there or not
 	bool prep_avail;
+	
 	//switches to control whether the sentence is listing a series of words or not.
 	bool n_is_listing = false;
 	bool n_end_list = false;
@@ -227,7 +232,7 @@ void Clause::Read(const string& original_text)
 }
 
 /*---------------------------------------------------------------------------------------------------------------
-the purpose of this function is to connect words to one another. In this case, I'll be running a greedy algorithm
+the purpose of these functions is to connect words to one another. In this case, I'll be running a greedy algorithm
 since that would probably be the best and most organic way of reading a list of terms in the English language.
 If you think about how you're reading these sentences, it's probably not based off the parts of speeches entirely,
 but also based on how the words themselves are placed. For instance, take the sentence "Make a turn at the turn signal."
@@ -252,8 +257,13 @@ often overlaps between all cases. Process the tokens by their part of speech as 
 for words in the clause,removing words that have been classified more than once.
 ----------------------------------------------------------------------------------------------------------------*/
 
+
 void Clause::Make_Graph()
 {
+	//index to determine when a verbal phrase starts
+	int verbal_index = 0;
+	//switch to determine if a word is in a verbal phrase or not
+	bool verbal_phrase = false;
 	//switch to see if the objects are finished listing.
 	bool obj_full = false;
 	//switch to see if a prepositional phrase is there or not
@@ -276,6 +286,98 @@ void Clause::Make_Graph()
 		if (unprocessed_words[w_ind]->name == "...")
 		{
 			unprocessed_words[w_ind]->name = ".";
+		}
+
+		//if there was a verbal used, we can determine if it is being used as a phrase or if it is by itself by checking the words that come afterwards.
+		if (verbal_phrase)
+		{
+			cout << "verbal phrase ongoing" << endl;
+			if (contains(tokens_PoS_Label[w_ind], "adv") || contains(tokens_PoS_Label[w_ind], "verb") || contains(tokens_PoS_Label[w_ind], "prep"))
+			{
+				verbal_phrase = false;
+			}
+			//only process the nouns as the objects of the phrase.
+			else if (contains(tokens_PoS_Label[w_ind], "noun"))
+			{
+				unprocessed_words[verbal_index]->descriptors.push_back(unprocessed_words[w_ind]);
+				cout << "attaching noun to verbal phrase" << endl;
+				verbal_phrase = false;
+				while (!stored_words_adj.empty())
+				{
+					unprocessed_words[w_ind]->descriptors.push_back(stored_words_adj.top());
+					stored_words_adj.pop();
+				}
+				continue;
+			}
+			//end the phrase if another verbal follows it
+			else if (contains(tokens_PoS_Label[w_ind], "infinitives") || contains(tokens_PoS_Label[w_ind], "gerunds"))
+				verbal_phrase = false;
+			
+		}
+
+		//in the case of infinitives, the phrase is either a noun, adverb, or adjective.
+		if (contains(tokens_PoS_Label[w_ind], "infinitives"))
+		{
+			verbal_phrase = true;
+			verbal_index = w_ind;
+			//we know if it is an adjective if if the word previous to it is a noun.
+			if (w_ind != 0 && contains(tokens_PoS_Label[w_ind - 1],"noun"))
+			{
+				tokens_PoS_Label[w_ind].push_back("adj");
+			}
+			//if there is no subject or object then it is mostly likely a noun. The noun logic can process it from there.
+			else if (clause.subj.empty() || clause.noun.empty() || (w_ind != 0 && contains(tokens_PoS_Label[w_ind - 1], "conj")) )
+			{
+				tokens_PoS_Label[w_ind].push_back("noun");
+
+				if (prep_avail)
+				{
+					if (n_end_list)
+						n_is_listing = false;
+					else
+						n_is_listing = true;
+					cout << "prep object" << endl;
+					//add all queue-stored adjectives and articles as its modifiers
+					while (stored_words_adj.size() != 1)
+					{
+						unprocessed_words[w_ind]->descriptors.push_back(stored_words_adj.top());
+						stored_words_adj.pop();
+					}
+					//fill the nouns as objects for the preposition
+					prep_in_clause.front()->descriptors.push_back(unprocessed_words[w_ind]);
+					//check if there are multiple objects for this preposition by checking if there is a listing in process
+					//if the list is done, we can terminate the preposition. If it isn't, just assume the prepositional phrase continues
+					if (!n_is_listing)
+					{
+						prep_avail = false;
+						prep_in_clause.pop();
+					}
+				}
+			}
+			//if not for those previous cases, it most likely is an adverb.
+			else
+			{
+				tokens_PoS_Label[w_ind].push_back("adv");
+			}
+		}
+
+		//in the case of a participle, the phrase is an adjective but can also be mixed up with a verb.
+		if (contains(tokens_PoS_Label[w_ind], "participles"))
+		{
+			//if the word cannot be confused with its use as a past tense verb, then it is a participle.
+			if (w_ind + 1 < unprocessed_words.size() && contains(tokens_PoS_Label[w_ind + 1],"noun") && !contains(tokens_PoS_Label[w_ind + 1], "Obj"))
+			{
+				tokens_PoS_Label[w_ind].push_back("adj");
+			}
+		}
+
+		//in the case of a gerund, it is either a noun or adjective.
+		if (contains(tokens_PoS_Label[w_ind], "gerunds"))
+		{
+			verbal_phrase = true;
+			verbal_index = w_ind;
+			tokens_PoS_Label[w_ind].push_back("adj");
+			tokens_PoS_Label[w_ind].push_back("noun");
 		}
 
 		//if the text is an article
@@ -431,12 +533,14 @@ void Clause::Make_Graph()
 			}
 		}
 
-		//if the text is a noun
+		//if the text is a noun and it is not in the middle of a verbal phrase.
 		if (contains(tokens_PoS_Label[w_ind], "noun"))
 		{
-			tokens_PoS_Label[w_ind].clear();
-			tokens_PoS_Label[w_ind].push_back("noun");
-
+			if (!contains(tokens_PoS_Label[w_ind], "infinitives"))
+			{
+				tokens_PoS_Label[w_ind].clear();
+				tokens_PoS_Label[w_ind].push_back("noun");
+			}
 			//append it into the clause graph. This will be ignoring appositives.
 			if (clause.verbs.empty() && !prep_avail)
 			{
@@ -539,6 +643,7 @@ void Clause::Make_Graph()
 			}
 		}
 
+		//logic for processing a comma.
 		if (unprocessed_words[w_ind]->name == ",")
 		{
 			if (w_ind + 1 != unprocessed_words.size())
@@ -567,6 +672,7 @@ void Clause::Make_Graph()
 			}
 		}
 	}
+
 	Process_Graph();
 }
 
@@ -678,6 +784,15 @@ void Clause::Process_Graph()
 		}
 		stored_words_adv.pop();
 	}
+	for (int i = 0; i < clause.subj.size(); i++)
+		cout << clause.subj[i].name << endl;
+
+	cout << "-----" << endl;
+	for (int i = 0; i < clause.obj1.size(); i++)
+		cout << clause.obj1[i].name << endl;
+	cout << "-----" << endl;
+	for (int i = 0; i < clause.obj2.size(); i++)
+		cout << clause.obj2[i].name << endl;
 
 }
 
@@ -688,7 +803,6 @@ struct Sentence : public Clause
 {
 	//text of the sentence
 	string text;
-	bool question;
 
 	//list of all clauses in sentence
 	vector <Clause> Clauses;
@@ -747,22 +861,21 @@ void Sentence::split()
 	*/
 	for (int index = 0; index < sent_unprocessed_words.size(); index++)
 	{
-		//if a period or a exclamation mark is there, it is the end of the sentence.
-		if (sent_unprocessed_words[index]->name == "." || sent_unprocessed_words[index]->name == "!") 
+		//if a period, colon, or a exclamation mark is there, it is the end of the sentence.
+		if (sent_unprocessed_words[index]->name == "." || sent_unprocessed_words[index]->name == "!" || sent_unprocessed_words[index]->name == ":")
 		{
-			question = false;
 			return;
 		}
 		//question marks are the end of the sentence too, but they need to be re-configured to be understood in the normal subject-action-object context. 
 		if (sent_unprocessed_words[index]->name == "?")
 		{
-			question = true;
 			Question();
 			return;
 		}
+		
 		//subordinate conjunctions case, we take a greedy approach of starting a new clause and labelling it a dependent one.
 		//In the case of another independent clause, we can just attach a make a new clause to represent that.
-		if (contains(tokens_PoS_Label[index], "sub_con") || Q_Clauses.empty())
+		if (contains(tokens_PoS_Label[index], "sub_con"))
 		{
 			Clause* C = new Clause;
 			C->indep = false;
@@ -831,18 +944,32 @@ void Sentence::split()
 			Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
 			Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
 			Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
-			Q_Clauses.top().Make_Graph();
 			cout << "adding word to clause" << endl;
 			cout << Q_Clauses.top().unprocessed_words.back()->name << endl;
+			//an implied subject could be here, so we can check the previous independent clauses for subjects and attach them if they are explicitly said.
+			if (contains(tokens_PoS_Label[index], "verb") && Q_Clauses.top().clause.subj.empty())
+			{
+				for (int clause_index = Clauses.size() - 1; clause_index >= 0; clause_index--)
+				{
+					if (Clauses[clause_index].indep)
+					{
+						Q_Clauses.top().clause.subj = Clauses[clause_index].clause.subj;
+						break;
+					}
+				}
+			}
+
+			Q_Clauses.top().Make_Graph();
 		}
 		
 		//in the case that the clause has wrapped up too many extra words
 		if (Q_Clauses.top().run_on || sent_unprocessed_words[index]->name == ";")
 		{
 			cout << "making new clause" << endl;
+			Q_Clauses.top().unprocessed_words.pop_back();
 			Clauses.push_back(Q_Clauses.top());
 			Q_Clauses.pop();
-				//if this clause was nested in another clause, we can just go back to looking at the previous clause.
+			//if this clause was nested in another clause, we can just go back to looking at the previous clause.
 			if (!Q_Clauses.empty())
 			{
 				Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
@@ -877,11 +1004,11 @@ void Sentence::split()
 				Q_Clauses.pop();
 			}
 		}
+		
 		//clear the clause to avoid duplicate entries
 		else
 			Q_Clauses.top().clause.clear();
 	}
-
 	cout << "Number of Clauses in sentence: " << Clauses.size() << endl;
 }
 
@@ -890,12 +1017,13 @@ class Story : public Sentence
 {
 private:
 	string text;
-	vector <Sentence> Sentences;
-	
+
 public:
+	vector <Sentence> Sentences;
 	//function that will split the text into multiple sentences. The sentences will then be processed 
 	//through the sentence data structure.
 	void split_into_sentences();
+	vector <string> sent_text;
 	Story() {}
 	Story(string s)
 	{
@@ -906,7 +1034,6 @@ public:
 
 void Story::split_into_sentences()
 {
-	vector <string> sent_text;
 	int sent_start_ind = 0;
 
 	for (int text_ind = 0; text_ind < text.size(); text_ind++)
