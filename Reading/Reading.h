@@ -6,7 +6,7 @@
 using namespace std;
 
 //container for punctuation normally present in a text
-set<char> punctuation = { '.' , ';' , ',' , '?' , '!', '$', '(', ')', '*', '&', '%', ':', '[',']','{', '}' };
+set<char> punctuation = { '.' , ';' , ',' , '?' , '!', '$', '(', ')', '*', '&', '%', ':', '[',']','{', '}','“','\"','”','–' };
 
 //static members of vocabulary structure imported into this header file.
 csvreader Vocabulary::reader;
@@ -28,7 +28,15 @@ Trie Vocabulary::conjunctions;
 Trie Vocabulary::modal_verbs;
 Trie Vocabulary::articles;
 Trie Vocabulary::subjunctive_conjunctions;
+Trie Vocabulary::rel_pronouns;
+Trie Vocabulary::infinitives;
+Trie Vocabulary::gerunds;
+Trie Vocabulary::participles;
+Trie Vocabulary::contract;
+vector <string> Vocabulary::contractions;
+vector <string> Vocabulary::contr_expanded;
 map <string, Trie> Vocabulary::Words;
+map <string, string> Vocabulary::contr;
 
 //nouns can be subjects or objects. Verbs connect subjects to an object or connect the subject to itself.
 //Adjectives modify nouns. Adverbs can modify verbs, adjectives, or other adverbs.
@@ -137,6 +145,7 @@ struct Clause : public Vocabulary
 	bool obj_full;
 	//switch to see if a prepositional phrase is there or not
 	bool prep_avail;
+	
 	//switches to control whether the sentence is listing a series of words or not.
 	bool n_is_listing = false;
 	bool n_end_list = false;
@@ -149,6 +158,7 @@ struct Clause : public Vocabulary
 
 	Clause(string s)
 	{
+		Learn();
 		clause_statement = s;
 		Read(s);
 	};
@@ -203,19 +213,34 @@ struct Clause : public Vocabulary
 	//function to label each element of the text by the correct part of speech and then to fill up the containers for the
 	//subject, objects, actions, adjectives, and adverbs in the clause.
 	void Read(const string& original_text);
+
+
+	//addition of a new clause to a previous one
+	Clause operator+ (Clause C)
+	{
+		Clause* concat_C = new Clause;
+		//add all the words of an original clause to a new one.
+		concat_C->unprocessed_words = unprocessed_words;
+		concat_C->tokens_PoS_Label = tokens_PoS_Label;
+		//add every single word and their list of possible parts of speeches in the other clause 
+		//to the new one.
+		for (int c_words = 0; c_words < C.unprocessed_words.size(); c_words++)
+		{
+			concat_C->unprocessed_words.push_back(C.unprocessed_words[c_words]);
+			concat_C->tokens_PoS_Label.push_back(C.tokens_PoS_Label[c_words]);
+		}
+
+		concat_C->Make_Graph();
+		return *concat_C;
+	}
 };
 
 void Clause::Read(const string& original_text)
 {
-
 	complete = false;
-	//learn the words from the database
-	Vocabulary::Learn();
 
 	//Process the text as the clause statement
 	Process_Text(original_text);
-
-	Vocabulary::Label_Text_PoS(clause_statement);
 
 	//listing out the unprocessed words and making them nodes in the graph for a word
 	for (int index = 0; index < tokens.size(); index++)
@@ -227,7 +252,7 @@ void Clause::Read(const string& original_text)
 }
 
 /*---------------------------------------------------------------------------------------------------------------
-the purpose of this function is to connect words to one another. In this case, I'll be running a greedy algorithm
+the purpose of these functions is to connect words to one another. In this case, I'll be running a greedy algorithm
 since that would probably be the best and most organic way of reading a list of terms in the English language.
 If you think about how you're reading these sentences, it's probably not based off the parts of speeches entirely,
 but also based on how the words themselves are placed. For instance, take the sentence "Make a turn at the turn signal."
@@ -252,8 +277,13 @@ often overlaps between all cases. Process the tokens by their part of speech as 
 for words in the clause,removing words that have been classified more than once.
 ----------------------------------------------------------------------------------------------------------------*/
 
+
 void Clause::Make_Graph()
 {
+	//index to determine when a verbal phrase starts
+	int verbal_index = 0;
+	//switch to determine if a word is in a verbal phrase or not
+	bool verbal_phrase = false;
 	//switch to see if the objects are finished listing.
 	bool obj_full = false;
 	//switch to see if a prepositional phrase is there or not
@@ -272,10 +302,86 @@ void Clause::Make_Graph()
 		//The reasoning for that is that's the usual way a sentence is made.
 		cout << w_ind << " - " << unprocessed_words[w_ind]->name << " : ";
 
+		//relative pronouns are always beginnings of dependent clauses
+		if (contains(tokens_PoS_Label[w_ind], "rel_pr") && w_ind > 0)
+		{
+			run_on = true;
+			complete = false;
+			return;
+		}
+
 		//turn ellipses into periods. Ellipses signify trailing off anyways, so it is not too different.
 		if (unprocessed_words[w_ind]->name == "...")
 		{
 			unprocessed_words[w_ind]->name = ".";
+		}
+
+		//if there was a verbal used, we can determine if it is being used as a phrase or if it is by itself by checking the words that come afterwards.
+		if (verbal_phrase)
+		{
+			cout << "verbal phrase ongoing" << endl;
+			if (contains(tokens_PoS_Label[w_ind], "adv") || contains(tokens_PoS_Label[w_ind], "verb") || contains(tokens_PoS_Label[w_ind], "prep"))
+			{
+				verbal_phrase = false;
+			}
+			//only process the nouns as the objects of the phrase.
+			else if (contains(tokens_PoS_Label[w_ind], "noun"))
+			{
+				unprocessed_words[verbal_index]->descriptors.push_back(unprocessed_words[w_ind]);
+				cout << "attaching noun to verbal phrase" << endl;
+				verbal_phrase = false;
+				while (!stored_words_adj.empty())
+				{
+					unprocessed_words[w_ind]->descriptors.push_back(stored_words_adj.top());
+					stored_words_adj.pop();
+				}
+				continue;
+			}
+			//end the phrase if another verbal follows it
+			else if (contains(tokens_PoS_Label[w_ind], "infinitives") || contains(tokens_PoS_Label[w_ind], "gerunds"))
+				verbal_phrase = false;
+			
+		}
+
+		//in the case of infinitives, the phrase is either a noun, adverb, or adjective.
+		if (contains(tokens_PoS_Label[w_ind], "infinitives"))
+		{
+			verbal_phrase = true;
+			verbal_index = w_ind;
+			//we know if it is an adjective if if the word previous to it is a noun.
+			if (w_ind != 0 && contains(tokens_PoS_Label[w_ind - 1],"noun"))
+			{
+				tokens_PoS_Label[w_ind].push_back("adj");
+			}
+			//if there is no subject or object then it is mostly likely a noun. The noun logic can process it from there.
+			else if (clause.subj.empty() || clause.noun.empty() || (w_ind != 0 && contains(tokens_PoS_Label[w_ind - 1], "conj")) )
+			{
+				tokens_PoS_Label[w_ind].push_back("noun");
+			}
+			//if not for those previous cases, it most likely is an adverb.
+			else
+			{
+				tokens_PoS_Label[w_ind].push_back("adv");
+			}
+		}
+
+		//in the case of a participle, the phrase is an adjective but can also be mixed up with a verb.
+		if (contains(tokens_PoS_Label[w_ind], "participles"))
+		{
+			//if the word cannot be confused with its use as a past tense verb, then it is a participle.
+			if (w_ind + 1 < unprocessed_words.size() && contains(tokens_PoS_Label[w_ind + 1],"noun") && !contains(tokens_PoS_Label[w_ind + 1], "Obj"))
+			{
+				tokens_PoS_Label[w_ind].push_back("adj");
+			}
+		}
+
+		//in the case of a gerund, it is either a noun or adjective.
+		if (contains(tokens_PoS_Label[w_ind], "gerunds"))
+		{
+			verbal_phrase = true;
+			verbal_index = w_ind;
+			tokens_PoS_Label[w_ind].push_back("adj");
+			tokens_PoS_Label[w_ind].push_back("noun");
 		}
 
 		//if the text is an article
@@ -330,8 +436,6 @@ void Clause::Make_Graph()
 		//if the text is an adverb or if it is a modal verb
 		if (contains(tokens_PoS_Label[w_ind], "adv") || contains(tokens_PoS_Label[w_ind], "modal_verb"))
 		{
-			tokens_PoS_Label[w_ind].clear();
-			tokens_PoS_Label[w_ind].push_back("adv");
 			//in the case the following word is also an adverb, just append the adverb as a modifier to the next adverb.
 			if (w_ind + 1 < unprocessed_words.size())
 			{
@@ -368,22 +472,15 @@ void Clause::Make_Graph()
 
 			tokens_PoS_Label[w_ind].clear();
 			tokens_PoS_Label[w_ind].push_back("adj");
-			//in the case the following word is also an adverb, just append the adverb as a modifier to the next adverb.
-			if (w_ind < unprocessed_words.size() - 1 && contains(tokens_PoS_Label[w_ind + 1], "noun"))
-			{
-				unprocessed_words[w_ind + 1]->descriptors.push_back(unprocessed_words[w_ind]);
-			}
-			else
-			{
-				stored_words_adj.push(unprocessed_words[w_ind]);
-			}
+
+			stored_words_adj.push(unprocessed_words[w_ind]);
 		}
 		
-		//if there are adjectives upcoming, we can assume the verb case is incorrect.
-		if (stored_words_adj.empty() || stored_words_adj.size() == 1 && prep_avail)
+		//if the text is a verb
+		if (contains(tokens_PoS_Label[w_ind], "verb"))
 		{
-			//if the text is a verb
-			if (contains(tokens_PoS_Label[w_ind], "verb"))
+			
+			if (stored_words_adj.empty() && !prep_avail)
 			{
 				tokens_PoS_Label[w_ind].clear();
 				tokens_PoS_Label[w_ind].push_back("verb");
@@ -429,14 +526,26 @@ void Clause::Make_Graph()
 					v_ended = true;
 				}
 			}
+			//if there are adjectives previous or if prepositions still ongoing, we can assume the verb case is incorrect.
+			else
+			{
+				if (!contains(tokens_PoS_Label[w_ind], "noun"))
+				{
+					complete = false;
+					run_on = true;
+					return;
+				}
+			}
 		}
 
-		//if the text is a noun
+		//if the text is a noun and it is not in the middle of a verbal phrase.
 		if (contains(tokens_PoS_Label[w_ind], "noun"))
 		{
-			tokens_PoS_Label[w_ind].clear();
-			tokens_PoS_Label[w_ind].push_back("noun");
-
+			if (!contains(tokens_PoS_Label[w_ind], "infinitives"))
+			{
+				tokens_PoS_Label[w_ind].clear();
+				tokens_PoS_Label[w_ind].push_back("noun");
+			}
 			//append it into the clause graph. This will be ignoring appositives.
 			if (clause.verbs.empty() && !prep_avail)
 			{
@@ -481,7 +590,7 @@ void Clause::Make_Graph()
 					n_is_listing = true;
 				cout << "prep object" << endl;
 				//add all queue-stored adjectives and articles as its modifiers
-				while (stored_words_adj.size() != 1)
+				while (stored_words_adj.size() > 1)
 				{
 					unprocessed_words[w_ind]->descriptors.push_back(stored_words_adj.top());
 					stored_words_adj.pop();
@@ -503,7 +612,7 @@ void Clause::Make_Graph()
 		{
 			//ignore the conjunction if it is beginning a clause. This is to help with compound sentences, but also because even though it is not good grammar, no one 
 			//really cares or looks for it besides English teachers. So we can just ignore it in most cases since it never really adds meaning to a sentence regardless.
-			if (w_ind == 0)
+			if (w_ind == 0 || (contains(tokens_PoS_Label[w_ind - 1], "adj") || contains(tokens_PoS_Label[w_ind - 1], "adv")))
 			{
 				continue;
 			}
@@ -515,21 +624,34 @@ void Clause::Make_Graph()
 				v_ended = true;
 				v_end_list = true;
 			}
+			//longer lists for verbs
 			else if (clause.verbs.size() >= 2 && contains(tokens_PoS_Label[w_ind - 2], "verb") && unprocessed_words[w_ind - 1]->name == "," && v_is_listing)
 			{
 				cout << clause.verbs.size() << endl;
 				v_ended = true;
 				v_end_list = true;
 			}
+			//if there are 2 subjects
+			else if (contains(tokens_PoS_Label[w_ind - 1], "noun") && unprocessed_words[w_ind - 1]->name != "," && clause.subj.size()==1)
+			{
+				n_end_list = true;
+			}
+			//if there are several subjects
+			else if (clause.subj.size() >= 2 && contains(tokens_PoS_Label[w_ind - 2], "noun") && unprocessed_words[w_ind - 1]->name == ",")
+			{
+				n_end_list = true;
+			}
+			//if there are 2 objects
 			else if (contains(tokens_PoS_Label[w_ind - 1], "noun") && unprocessed_words[w_ind - 1]->name != "," && clause.noun.size() == 1)
 			{
 				n_end_list = true;
 			}
+			//if there are several objects
 			else if (clause.noun.size() >= 2 && contains(tokens_PoS_Label[w_ind - 2], "noun") && unprocessed_words[w_ind - 1]->name == ",")
 			{
 				n_end_list = true;
 			}
-			//in this case, it must be the start of a new independent clause.
+			//Otherwise, it must be the start of a new independent clause.
 			else
 			{
 				cout << "not complete and is run-on!" << endl;
@@ -539,18 +661,21 @@ void Clause::Make_Graph()
 			}
 		}
 
+		//logic for processing a comma.
 		if (unprocessed_words[w_ind]->name == ",")
 		{
 			if (w_ind + 1 != unprocessed_words.size())
 			{
 				if (contains(tokens_PoS_Label[w_ind - 1], "verb") && contains(tokens_PoS_Label[w_ind + 1], "noun"))
 				{
+					complete = false;
 					run_on = true;
 					return;
 				}
 
 				if (contains(tokens_PoS_Label[w_ind - 1], "noun") && contains(tokens_PoS_Label[w_ind + 1], "verb"))
 				{
+					complete = false;
 					run_on = true;
 					return;
 				}
@@ -567,28 +692,12 @@ void Clause::Make_Graph()
 			}
 		}
 	}
+
 	Process_Graph();
 }
 
 void Clause::Process_Graph()
 {
-	if (!clause.subj.empty() && !clause.verbs.empty() && Union<char>(punctuation,unprocessed_words.back()->name[0]) == punctuation)
-	{
-		complete = true;
-	}
-
-	if (clause.subj.empty() || clause.verbs.empty())
-	{
-		complete = false;
-	}
-
-	if (contains(tokens_PoS_Label.back(), "conj") || contains(tokens_PoS_Label.back(), "adj"))
-	{
-		complete = false;
-		cout << "incorrect ending!" << endl;
-		return;
-	}
-
 	//if the beginning of the clause is a subordinate conjunction, we can append all the subjects of the clause as desciptors of the
 	//subordinate conjunction. This gives us the ability to connect the rest of the clause as a descriptor for the subordinate conjunction
 	//or relative pronoun.
@@ -678,6 +787,15 @@ void Clause::Process_Graph()
 		}
 		stored_words_adv.pop();
 	}
+	for (int i = 0; i < clause.subj.size(); i++)
+		cout << clause.subj[i].name << endl;
+
+	cout << "-----" << endl;
+	for (int i = 0; i < clause.obj1.size(); i++)
+		cout << clause.obj1[i].name << endl;
+	cout << "-----" << endl;
+	for (int i = 0; i < clause.obj2.size(); i++)
+		cout << clause.obj2[i].name << endl;
 
 }
 
@@ -688,14 +806,14 @@ struct Sentence : public Clause
 {
 	//text of the sentence
 	string text;
-	bool question;
 
 	//list of all clauses in sentence
 	vector <Clause> Clauses;
 	
 	//word tokens in the whole sentence
 	vector <Graph_Word*> sent_unprocessed_words;
-	
+	//blobs of words that are not necessarily clauses yet.
+	vector <vector <Graph_Word*>> text_blobs;
 	//Constructors for each sentence.
 	Sentence() {}
 	Sentence(string s)
@@ -703,10 +821,15 @@ struct Sentence : public Clause
 		text = s;
 		split();
 	}
+	//function to deal with question type clauses.
 	void Question();
+	//function to culminate the clauses as needed.
+	void Process_Blobs(int index, bool check_dep);
+	void Process_Clauses();
 	//function to split text into clauses.
 	void split();
 };
+
 //function to re-configure a question into a sentence structure
 void Sentence::Question()
 {
@@ -714,175 +837,238 @@ void Sentence::Question()
 	return;
 }
 
+//now to algorithmize the splitting of each clause. For clauses in English, an easy algorithm is attach
+//all the words between punctuation and subjunctive conjunctions together as their own clause. Then, we can
+//test if adding the texts together can make a clause - if it does, see if adding more of the segments to it
+//keeps it as a clause or if that fails. If you can keep adding without making the clause a run-on or incomplete
+//sentence, add it. If that fails, then the partition where it failed is where the next clause will begin.
 void Sentence::split()
 {
-	stack <Clause> Q_Clauses;
 	//tokenize and label by part of speech every word in the sentence
-	Vocabulary::Learn();
 	Process_Text(text);
-	Label_Text_PoS(clause_statement);
-	queue <Graph_Word> saved_advs;
+	Vocabulary::Label_Text_PoS(clause_statement);
+
+	//save adverbial dependent clauses
+	queue <Graph_Word*> saved_advs;
+	//intialize at least 1 text blob in a sentence
+	text_blobs.resize(1);
 	//setting each of the tokens to be processed as a word
 	for (int index = 0; index < tokens.size(); index++)
 	{
 		Graph_Word* unproc_word = new Graph_Word(tokens[index]);
 		sent_unprocessed_words.push_back(unproc_word);
-	}
-	//now to algorithmize the splitting of each clause. For clauses in English, an easy algorithm is to keep
-	//attaching words to the latest clause till it is complete and then keep doing so till it is not a run-on.
-	//That is what we'll be doing - when the sub-ordinate conjunction arises, a dependent clause is coming.
 
+		//at a junction where the word is a subjunctive conjunction or a relative pronoun, we form a text blob containing that word.
+		if (contains(tokens_PoS_Label[index], "sub_con") || contains(tokens_PoS_Label[index], "rel_pr"))
+		{
+			//increase the number of text blobs by one if it is not  the first clause in the sentence
+			if (text_blobs.size() > 1 && text_blobs.back().size() > 0)
+				text_blobs.resize(text_blobs.size() + 1);
+			//if the dependent clause starts with a subjunctive conjunction, it must be an adverbial one
+			if (contains(tokens_PoS_Label[index], "sub_con"))
+			{
+				saved_advs.push(sent_unprocessed_words[index]);
+			}
+		}
+
+		//add the word to the previous text blob.
+		text_blobs.back().push_back(unproc_word);
+
+		//at a junction in the text where it is a punctuation, we end the previous text blob with that punctuation and start a new one.
+		if (Union<char>(punctuation, unproc_word->name[0]) == punctuation)
+		{
+			//not including the end mark at the end of the sentence
+			if (index != tokens.size() - 1)
+			{
+				//increase the number of text blobs by one.
+				text_blobs.resize(text_blobs.size() + 1);
+			}
+		}
+	}
 
 	/*
 	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	Q_Clauses.front().unprocessed_words.push_back(sent_unprocessed_words[index]); <--- line to add a word to the clause
+	//append each of the words in a text blob as a potential clause. As we read through the sentence, we should be able to
+	//concatenate each of the blobs to one another till a full clause is formed.
 
-	Q_Clauses.front().tokens_PoS_Label.resize(Q_Clauses.front().unprocessed_words.size()); <-- line that resizes the total number of parts of speech labels 
-																							   for each word to fit the clause appropriately.
+	Clauses.back().unprocessed_words.push_back(sent_unprocessed_words[index]); <--- line to add a word to the clause
 
-	Q_Clauses.front().tokens_PoS_Label.back() = tokens_PoS_Label[index]; <--- line to add the part of speech labels for that word into the clause
+	Clauses.back().tokens_PoS_Label.resize(Clauses.front().unprocessed_words.size()); <-- line that resizes the total number of parts of speech labels
+	for each word to fit the clause appropriately.
+
+	Clauses.back().tokens_PoS_Label.back() = tokens_PoS_Label[index]; <--- line to add the part of speech labels for that word into the clause
 	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	*/
-	for (int index = 0; index < sent_unprocessed_words.size(); index++)
+	//index for the nth word in the sentence
+	int index = 0;
+	cout << text_blobs.size() << endl;
+	for (int blob_i = 0; blob_i < text_blobs.size(); blob_i++)
 	{
-		//if a period or a exclamation mark is there, it is the end of the sentence.
-		if (sent_unprocessed_words[index]->name == "." || sent_unprocessed_words[index]->name == "!") 
-		{
-			question = false;
-			return;
+		Clause* C = new Clause;
+		Clauses.push_back(*C);
+		cout << text_blobs[blob_i].size() << endl;
+		for (int blob_i_ele = 0; blob_i_ele < text_blobs[blob_i].size(); blob_i_ele++)
+		{	
+			Clauses.back().unprocessed_words.push_back(text_blobs[blob_i][blob_i_ele]);
+			Clauses.back().tokens_PoS_Label.resize(Clauses.back().unprocessed_words.size());
+			Clauses.back().tokens_PoS_Label.back() = tokens_PoS_Label[index];
+			//as each element of each text blob passes, we move to the nth + 1 word in the sentence
+			index++;
 		}
-		//question marks are the end of the sentence too, but they need to be re-configured to be understood in the normal subject-action-object context. 
-		if (sent_unprocessed_words[index]->name == "?")
-		{
-			question = true;
-			Question();
-			return;
-		}
-		//subordinate conjunctions case, we take a greedy approach of starting a new clause and labelling it a dependent one.
-		//In the case of another independent clause, we can just attach a make a new clause to represent that.
-		if (contains(tokens_PoS_Label[index], "sub_con") || Q_Clauses.empty())
-		{
-			Clause* C = new Clause;
-			C->indep = false;
-			
-			if (!Q_Clauses.empty())
-			{
-				//if the clause is an adverbial one, 
-				if (contains(tokens_PoS_Label[index], "adv"))
-				{
-					//we can append it to the independent clause.
-					if (Q_Clauses.top().indep)
-					{
-						for (int i = 0; i < Q_Clauses.top().clause.verbs.size(); i++)
-						{
-							Q_Clauses.top().clause.verbs[i].descriptors.push_back(sent_unprocessed_words[index]);
-						}
-					}
-					//or, if the independent clause has not been found yet, we can save it.
-					else
-					{
-						saved_advs.push(*sent_unprocessed_words[index]);
-					}
-				}
-				//if the clause is adjectival, it must be preceded by a noun (if the preceding clause is still incomplete).
-				else if (contains(tokens_PoS_Label[index - 1], "noun") && index > 0)
-				{
-					cout << "adding clause as a adjective" << endl;
-					Q_Clauses.top().unprocessed_words[index - 1]->descriptors.push_back(sent_unprocessed_words[index]);
-				}
-				//if the clause is a noun, it will either be preceded by a verb or an adjective. If it is precede by an adjective
-				//it could either be the subject or an object of the clause.
-				else if (contains(tokens_PoS_Label[index - 1], "adj") && index > 0)
-				{
-					cout << "adding clause as a noun" << endl;
-					//if there are no verbs that have been passed, it's got to be a subject of the clause.
-					if (Q_Clauses.top().clause.verbs.empty())
-					{
-						Q_Clauses.top().clause.subj.push_back(*sent_unprocessed_words[index]);
-					}
-					//if there are verbs that have been passed, it's got to be an object.
-					else
-					{
-						Q_Clauses.top().clause.noun.push(*sent_unprocessed_words[index]);
-					}
-				}
-				//in the case that the preceding word is a verb, it must be an object, so we push it through there.
-				else if (contains(tokens_PoS_Label[index - 1], "verb") && index > 0)
-				{
-					cout << "adding clause as an object" << endl;
-					Q_Clauses.top().clause.noun.push(*sent_unprocessed_words[index]);
-				}
-			}
-			cout << "making new clause" << endl;
-
-			Q_Clauses.push(*C);
-			Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
-			Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
-			Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
-
-			Q_Clauses.top().Make_Graph();
-		}
+		//process each of the 'initial' clauses
+		Clauses.back().Make_Graph();
+	}
 		
-		//the normal case of constantly adding new words to a clause till it is a complete thought
-		else if (!Q_Clauses.top().complete || !Q_Clauses.top().run_on)
+	
+	//Process the blobs beginning from the first blob in the sentence
+
+	//append the blobs without checking for dependent clauses.
+	Process_Blobs(0, 0);
+	//Process the clauses to check for whether the dependent clauses can be nouns or adjectives.
+	Process_Clauses();
+	//append the blobs by ignoring dependent clauses.
+	Process_Blobs(0, 1);
+
+
+	//Attach all the adverbial clauses as adverbs to the independent clauses.
+	for (int clause_i = 0; clause_i < Clauses.size(); clause_i++)
+	{
+		if (Clauses[clause_i].indep)
 		{
-			Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
-			Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
-			Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
-			Q_Clauses.top().Make_Graph();
-			cout << "adding word to clause" << endl;
-			cout << Q_Clauses.top().unprocessed_words.back()->name << endl;
-		}
-		
-		//in the case that the clause has wrapped up too many extra words
-		if (Q_Clauses.top().run_on || sent_unprocessed_words[index]->name == ";")
-		{
-			cout << "making new clause" << endl;
-			Clauses.push_back(Q_Clauses.top());
-			Q_Clauses.pop();
-				//if this clause was nested in another clause, we can just go back to looking at the previous clause.
-			if (!Q_Clauses.empty())
+			//place all adverbial clauses as adverbs for the independent clause.
+			for (int v = 0; v < Clauses[clause_i].clause.verbs.size(); v++)
 			{
-				Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
-				Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
-				Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
-			}
-			//if it was removed from the previous clause, we can append a new clause and begin again.
-			else
-			{
-				Clause* C = new Clause;
-				C->indep = true;
-				//save all the adverbs
 				while (!saved_advs.empty())
 				{
-					C->stored_words_adv.push(&saved_advs.front());
+					Clauses[clause_i].clause.verbs[v].descriptors.push_back(saved_advs.front());
 					saved_advs.pop();
 				}
-				Q_Clauses.push(*C);
-				Q_Clauses.top().unprocessed_words.push_back(sent_unprocessed_words[index]);
-				Q_Clauses.top().tokens_PoS_Label.resize(Q_Clauses.top().unprocessed_words.size());
-				Q_Clauses.top().tokens_PoS_Label.back() = tokens_PoS_Label[index];
 			}
 		}
-		
-		//if it is the last word in the sentence, we can just wrap up the remaining clauses.
-		if (index + 1 == sent_unprocessed_words.size())
-		{
-			cout << "clearing remaining clauses" << endl;
-			while (!Q_Clauses.empty())
-			{
-				Clauses.push_back(Q_Clauses.top());
-				Q_Clauses.pop();
-			}
-		}
-		//clear the clause to avoid duplicate entries
-		else
-			Q_Clauses.top().clause.clear();
 	}
 
 	cout << "Number of Clauses in sentence: " << Clauses.size() << endl;
+}
+
+
+//function that processes the clauses in consecutive order. It starts from the first
+//blob segment and then moves on towards the next one, so our job is to keep attaching blobs
+//till either it is a run-on sentence or if a subjunctive conjunction arises.
+void Sentence::Process_Blobs(int index, bool check_dep)
+{
+	//if it is the last blob of the sentence, just end it there.
+	if (index == Clauses.size() - 1)
+		return;
+
+	//only think about conjoining text blobs that are separated by a comma.
+	if (Clauses[index].unprocessed_words.back()->name == ",")
+	{
+		//a holder clause that samples the idea of two consecutive blobs conjoining
+		Clause* C = new Clause;
+		//if we are not checking for dependence, test the blob directly succeeding. If we are checking for dependence 
+		//and the clause directly succeeding is a dependent clause, look for the one afterwards.
+		*C = Clauses[index] + Clauses[index + 1];
+		if (check_dep && !Clauses[index + 1].indep)
+			*C = Clauses[index] + Clauses[index + 2];
+
+		//if the clause in a dependent clause we don't have to worry about appending this segment to the preceding clause.
+		if (contains(Clauses[index].tokens_PoS_Label[0], "sub_con") || contains(Clauses[index].tokens_PoS_Label[0], "rel_pr"))
+			//list it as a dependent clause
+			Clauses[index].indep = false;
+
+		//otherwise, it is an independent clause.
+		else
+			Clauses[index].indep = true;
+
+		//the value of whether it is an independent or dependent clause depends on if the first clause that is being added to is
+		//an independent or dependent clause itself!
+		C->indep = Clauses[index].indep;
+
+		//in the case that the sum of both clauses is not a run-on, merge them
+		if (!C->run_on)
+		{
+			//combine the two clauses and remove the clause that succeeds this one
+			Clauses[index] = *C;
+
+			// if the two blobs wrapping a dependent clause can be concatenated and we are checking for that, we will remove the clause succeeding 
+			//the dependent clause not the dependent clause itself.
+			if (check_dep && !Clauses[index + 1].indep)
+				Clauses.erase(Clauses.begin() + index + 2);
+
+			//otherwise, we delete the clause succeeding the clause.
+			else
+				Clauses.erase(Clauses.begin() + index + 1);
+		}
+		//in the case that the combination of the two clauses results in a run-on sentence, do not merge them.
+		else
+			index++;
+	}
+	else
+		index++;
+	//there is no case where it is complete and also a run-on since those two categories are mutually exclusive.
+
+	Process_Blobs(index, check_dep);
+}
+
+//method to fix the clauses that start with relative pronouns as noun or adjectival and concatentate them as needed.
+void Sentence::Process_Clauses()
+{
+	queue <Graph_Word*> saved_adj;
+	for (int index = 0; index < Clauses.size(); index++)
+	{
+		if (!Clauses[index].indep && Clauses.size() > 2)
+		{
+			//the actions of the dependent clause describe the first word in that clause.
+			for (int v = 0; v < Clauses[index].clause.verbs.size(); v++)
+				Clauses[index].unprocessed_words[0]->descriptors.push_back(&Clauses[index].clause.verbs[v]);
+		
+			//now to check if it is an adjective or noun clause.
+			if (contains(Clauses[index].tokens_PoS_Label[0], "rel_pr") && index > 0)
+			{
+				//if the last word in the previous blob is an adjective, the clause is definitely a noun.
+				if (contains(Clauses[index - 1].tokens_PoS_Label.back(), "adj"))
+				{
+					//if the previous blob has no verbs just, it is the subject of that clause.
+					if (Clauses[index - 1].clause.verbs.empty())
+					{
+						Clauses[index - 1].clause.subj.push_back(*Clauses[index].unprocessed_words[0]);
+					}
+
+					//if there is verb, then it is either a direct or indirect object. If there is no direct object,
+					//it is the direct object. Otherwise it is the indirect object.
+					else if (Clauses[index - 1].clause.obj2.empty())
+					{
+						Clauses[index - 1].clause.obj2.push_back(*Clauses[index].unprocessed_words[0]);
+					}
+					else if (Clauses[index - 1].clause.obj1.empty())
+					{
+						Clauses[index - 1].clause.obj1.push_back(*Clauses[index].unprocessed_words[0]);
+					}
+				}
+
+				//if the last word in the previous blob is a verb, this clause is the direct object of that clause.
+				if (contains(Clauses[index - 1].tokens_PoS_Label.back(), "verb"))
+					Clauses[index - 1].clause.obj2.push_back(*Clauses[index].unprocessed_words[0]);
+
+				//otherwise we save it as an adjective
+				else
+					saved_adj.push(Clauses[index].unprocessed_words[0]);
+			}
+		}
+
+		//if it is an independent clause-type blob, we just append any adjectival clauses to the first noun we see, 
+		//the first subject of the blob.
+		else
+		{
+			while (!saved_adj.empty())
+			{
+				Clauses[index].clause.subj[0].descriptors.push_back(saved_adj.front());
+				saved_adj.pop();
+			}
+		}
+	}
 }
 
 //structure to hold all the sentences in the text.
@@ -890,12 +1076,13 @@ class Story : public Sentence
 {
 private:
 	string text;
-	vector <Sentence> Sentences;
-	
+
 public:
+	vector <Sentence> Sentences;
 	//function that will split the text into multiple sentences. The sentences will then be processed 
 	//through the sentence data structure.
 	void split_into_sentences();
+	vector <string> sent_text;
 	Story() {}
 	Story(string s)
 	{
@@ -906,14 +1093,16 @@ public:
 
 void Story::split_into_sentences()
 {
-	vector <string> sent_text;
+	Vocabulary::Learn();
+
 	int sent_start_ind = 0;
 
 	for (int text_ind = 0; text_ind < text.size(); text_ind++)
 	{
-		if (text[text_ind] == '.' || text[text_ind] == '!' || text[text_ind] == '?' || text[text_ind] == '"')
+		if (text[text_ind] == '.' || text[text_ind] == '!' || text[text_ind] == '?' || text[text_ind] == '"' || text[text_ind] == '”' || text[text_ind] == '“' || text[text_ind] == ';')
 		{
 			sent_text.push_back(text.substr(sent_start_ind, text_ind - sent_start_ind));
+			sent_text.back() = sent_text.back() + " ";
 			Sentence S(sent_text.back());
 			Sentences.push_back(S);
 			sent_start_ind = text_ind + 1;

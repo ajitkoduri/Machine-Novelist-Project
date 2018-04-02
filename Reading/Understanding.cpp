@@ -1,16 +1,13 @@
 // Understanding.cpp : Application to build understanding based on story read
-
-//using Magick++ to generate images in C++
 #include <Magick++.h>
 //using Reading.h file to read story and generate graph.
 #include "Reading.h"
-#include <fstream>
-
 
 //have to make infinitives, gerunds, participles, and contractions databases as well.
 int main()
 {
 	//sets the ascii values correctly.
+	
 	std::locale::global(std::locale(""));
 		
 	string story_text;
@@ -24,9 +21,7 @@ int main()
 			story_text += line;
 		}
 	}
-	
 	//building a story out of the text that has been read
 	Story S(story_text);
-
 	return 0;
 }
