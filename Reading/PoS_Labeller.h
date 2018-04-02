@@ -32,9 +32,14 @@ struct Vocabulary
 	static Trie modal_verbs;
 	static Trie articles;
 	static Trie subjunctive_conjunctions;
+	static Trie rel_pronouns;
 	static Trie infinitives;
 	static Trie gerunds;
 	static Trie participles;
+	static vector<string> contractions;
+	static vector<string> contr_expanded;
+	static map<string, string> contr;
+	static Trie contract;
 	
 	//list of all words in the text
 	vector <string> tokens;
@@ -58,6 +63,15 @@ struct Vocabulary
 			"nor", "but", "or", "yet" };						//so I just wrote it in here. They were taken from
 																//the acronym FANBOYS for co-ordinating conjunctions.
 
+		reader.read("contractions.csv",false);						//read contractions file
+		contractions = reader.data[0];							//contracted forms
+		contr_expanded = reader.data[1];						//expanded forms
+		for (size_t c_i = 0; c_i < contractions.size(); c_i++)
+		{
+			contr[contractions[c_i]] = contr_expanded[c_i];		//make a map of the contractions to their expanded form
+			contract.add(contractions[c_i]);					//make a trie of the contractions for quick access
+		}
+
 		reader.read("verbs_1_s.csv");							//read 1st Person Singular verbs file
 		vector <vector <string>> verbs_1s_2dvec = reader.data;
 		vector <string> verbs_header = reader.heading;			//get the header for each file
@@ -77,7 +91,8 @@ struct Vocabulary
 			"must", "shall","should", "will", "would" };								//databank for modal verbs
 
 		reader.read("subjunctive_con.csv", false);										//read singular subjunctive conjunctions file
-		vector <string> subjunctive_con_vec = reader.data[0];							//data in the 1st column
+		vector <string> subjunctive_con_vec = reader.data[0];							//data in the 1st column of the subjunctive conjunctions
+		vector <string> rel_pronouns_vec = reader.data[1];								//data in the 2nd column of only relative pronouns
 
 		reader.read("nouns.csv", false);												//read singular nouns file
 		vector <string> nouns_s_vec = reader.data[0];									//nouns are put on the 1st column
@@ -174,6 +189,11 @@ struct Vocabulary
 		{
 			subjunctive_conjunctions.add(subjunctive_con_vec[conj_word]);
 		}
+		//gather the relative pronouns
+		for (int rel_word = 0; rel_word < rel_pronouns_vec.size(); rel_word++)
+		{
+			rel_pronouns.add(rel_pronouns_vec[rel_word]);
+		}
 		//gather the articles
 		for (int art_word = 0; art_word < articles_vec.size(); art_word++)
 		{
@@ -209,7 +229,8 @@ struct Vocabulary
 		{
 			//miscellaneous types of words
 			{ "noun sing",nouns_s },{ "noun pl", nouns_p },{ "prep", prepositions },{ "social", social },
-			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions }, {"sub_con", subjunctive_conjunctions}, 
+			{ "adj", adjectives },{ "adv", adverbs },{ "conj", conjunctions }, {"sub_con", subjunctive_conjunctions},
+			{"rel_pr", rel_pronouns},
 
 			//section for pronouns separated by type of pronoun
 			{ "Pronoun Sing", pronouns[0] },{ "Pronoun Pl", pronouns[1] },{ "Pronoun Obj Sing", pronouns[2] },
@@ -248,6 +269,7 @@ struct Vocabulary
 			{ "verbs3p_pres_p", verbs_3_p[3] },{ "verbs3p_fut", verbs_3_p[4] },{ "verbs3p_fut_p", verbs_3_p[5] },
 			{ "verbs3p_past_c", verbs_3_p[6] },{ "verbs3p_past_p", verbs_3_p[7] },{ "verbs3p_fut_c", verbs_3_p[8] },
 			{ "verbs3p_pres_p_c", verbs_3_p[9] },{ "verbs3p_past_p_c", verbs_3_p[10] },{ "verbs3p_fut_p_c", verbs_3_p[11] },
+			
 			//modal verbs, articles, and verbals
 			{ "modal_verbs", modal_verbs }, {"article", articles}, {"participles", participles}, {"infinitives", infinitives},
 			{"gerunds", gerunds}
@@ -278,11 +300,24 @@ struct Vocabulary
 	-------------------------------------------------------------------------------------------------------------------------------
 	-------------------------------------------------------------------------------------------------------------------------------
 	*/
-	void Label_Text_PoS(const string& S)
+	void Label_Text_PoS(string& S)
 	{
 		//container for each of the words
 		string word;
 		string remember;
+		//replace contractions in text with the expanded form.
+		stringstream ss(S);
+		string fixed_S;
+		while (getline(ss, word, ' '))
+		{
+
+			if (contract.find(word))
+			{
+				word = contr[word];
+			}
+			fixed_S += word + " ";
+		}
+		S = fixed_S;
 
 		//a switch to determine if the previous word was found and another to find if the current word is known
 		bool prev_found = false;
@@ -347,6 +382,8 @@ struct Vocabulary
 
 				if (found_current == false)
 				{
+
+
 					tokens.push_back(word);
 					tokens_PoS_Label.resize(tokens.size());
 					cout << "unknown word: " << word << endl;

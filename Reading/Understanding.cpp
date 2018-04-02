@@ -1,5 +1,5 @@
 // Understanding.cpp : Application to build understanding based on story read
-
+#include <Magick++.h>
 //using Reading.h file to read story and generate graph.
 #include "Reading.h"
 
@@ -7,6 +7,7 @@
 int main()
 {
 	//sets the ascii values correctly.
+	
 	std::locale::global(std::locale(""));
 		
 	string story_text;
@@ -20,10 +21,7 @@ int main()
 			story_text += line;
 		}
 	}
-
 	//building a story out of the text that has been read
-	story_text = "Once upon a time there was an old Sow with three little Pigs, and, as she had not enough to keep them, she sent.";
 	Story S(story_text);
-
 	return 0;
 }
