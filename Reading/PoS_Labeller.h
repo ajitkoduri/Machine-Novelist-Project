@@ -271,11 +271,7 @@ struct Vocabulary
 			{ "verbs3p_pres_p_c", verbs_3_p[9] },{ "verbs3p_past_p_c", verbs_3_p[10] },{ "verbs3p_fut_p_c", verbs_3_p[11] },
 			
 			//modal verbs, articles, and verbals
-<<<<<<< HEAD
 			{ "modal_v", modal_verbs }, {"article", articles}, {"participles", participles}, {"infinitives", infinitives},
-=======
-			{ "modal_verbs", modal_verbs }, {"article", articles}, {"participles", participles}, {"infinitives", infinitives},
->>>>>>> 0dcc1cef9f9ba49eca08492c47892e16095f6068
 			{"gerunds", gerunds}
 		};
 	}
