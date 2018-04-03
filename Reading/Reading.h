@@ -6,7 +6,7 @@
 using namespace std;
 
 //container for punctuation normally present in a text
-set<char> punctuation = { '.' , ';' , ',' , '?' , '!', '$', '(', ')', '*', '&', '%', ':', '[',']','{', '}','‚Äú','\"','‚Äù','‚Äì' };
+set<char> punctuation = { '.' , ';' , ',' , '?' , '!', '$', '(', ')', '*', '&', '%', ':', '[',']','{', '}','ì','\"','î','ñ' };
 
 //static members of vocabulary structure imported into this header file.
 csvreader Vocabulary::reader;
@@ -831,7 +831,6 @@ struct Sentence : public Clause
 {
 	//text of the sentence
 	string text;
-	
 	//list of all clauses in sentence
 	vector <Clause> Clauses;
 	
@@ -917,18 +916,19 @@ void Sentence::split()
 	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	//append each of the words in a text blob as a potential clause. As we read through the sentence, we should be able to
 	//concatenate each of the blobs to one another till a full clause is formed.
-	
+
 	Clauses.back().unprocessed_words.push_back(sent_unprocessed_words[index]); <--- line to add a word to the clause
 
 	Clauses.back().tokens_PoS_Label.resize(Clauses.front().unprocessed_words.size()); <-- line that resizes the total number of parts of speech labels
 	for each word to fit the clause appropriately.
-	
+
 	Clauses.back().tokens_PoS_Label.back() = tokens_PoS_Label[index]; <--- line to add the part of speech labels for that word into the clause
 	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	*/
 	//index for the nth word in the sentence
 	int index = 0;
+
 	for (int blob_i = 0; blob_i < text_blobs.size(); blob_i++)
 	{
 		Clause* C = new Clause;
@@ -1123,7 +1123,7 @@ void Story::split_into_sentences()
 
 	for (int text_ind = 0; text_ind < text.size(); text_ind++)
 	{
-		if (text[text_ind] == '.' || text[text_ind] == '!' || text[text_ind] == '?' || text[text_ind] == '"' || text[text_ind] == '‚Äù' || text[text_ind] == '‚Äú' || text[text_ind] == ';')
+		if (text[text_ind] == '.' || text[text_ind] == '!' || text[text_ind] == '?' || text[text_ind] == '"' || text[text_ind] == 'î' || text[text_ind] == 'ì' || text[text_ind] == ';')
 		{
 			sent_text.push_back(text.substr(sent_start_ind, text_ind - sent_start_ind));
 			sent_text.back() = sent_text.back() + " ";
