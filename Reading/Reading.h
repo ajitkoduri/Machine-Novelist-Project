@@ -6,7 +6,7 @@
 using namespace std;
 
 //container for punctuation normally present in a text
-set<char> punctuation = { '.' , ';' , ',' , '?' , '!', '$', '(', ')', '*', '&', '%', ':', '[',']','{', '}','ì','\"','î','ñ' };
+set<char> punctuation = { '.' , ';' , ',' , '?' , '!', '$', '(', ')', '*', '&', '%', ':', '[',']','{', '}','‚Äú','\"','‚Äù','‚Äì' };
 
 //static members of vocabulary structure imported into this header file.
 csvreader Vocabulary::reader;
@@ -379,7 +379,6 @@ void Clause::Make_Graph()
 		//in the case of a gerund, it is either a noun or adjective.
 		if (contains(tokens_PoS_Label[w_ind], "gerunds"))
 		{
-<<<<<<< HEAD
 			//if it is preceded by the word 'not', then it is the verb of the sentence.
 			if (w_ind > 0 && unprocessed_words[w_ind - 1]->name == "not")
 			{
@@ -393,12 +392,10 @@ void Clause::Make_Graph()
 				tokens_PoS_Label[w_ind].push_back("adj");
 				tokens_PoS_Label[w_ind].push_back("noun");
 			}
-=======
 			verbal_phrase = true;
 			verbal_index = w_ind;
 			tokens_PoS_Label[w_ind].push_back("adj");
 			tokens_PoS_Label[w_ind].push_back("noun");
->>>>>>> 0dcc1cef9f9ba49eca08492c47892e16095f6068
 		}
 
 		//if the text is an article
@@ -453,7 +450,6 @@ void Clause::Make_Graph()
 		//if the text is an adverb or if it is a modal verb
 		if (contains(tokens_PoS_Label[w_ind], "adv") || contains(tokens_PoS_Label[w_ind], "modal_v"))
 		{
-<<<<<<< HEAD
 			//if it is a question type clause
 			if (contains(tokens_PoS_Label[w_ind], "modal_v") && clause.subj.empty())
 			{
@@ -462,8 +458,6 @@ void Clause::Make_Graph()
 				tokens_PoS_Label[w_ind].push_back("adv");
 			}
 
-=======
->>>>>>> 0dcc1cef9f9ba49eca08492c47892e16095f6068
 			//in the case the following word is also an adverb, just append the adverb as a modifier to the next adverb.
 			if (w_ind + 1 < unprocessed_words.size())
 			{
@@ -841,10 +835,7 @@ struct Sentence : public Clause
 {
 	//text of the sentence
 	string text;
-<<<<<<< HEAD
-=======
-
->>>>>>> 0dcc1cef9f9ba49eca08492c47892e16095f6068
+	
 	//list of all clauses in sentence
 	vector <Clause> Clauses;
 	
@@ -1154,7 +1145,7 @@ void Story::split_into_sentences()
 
 	for (int text_ind = 0; text_ind < text.size(); text_ind++)
 	{
-		if (text[text_ind] == '.' || text[text_ind] == '!' || text[text_ind] == '?' || text[text_ind] == '"' || text[text_ind] == 'î' || text[text_ind] == 'ì' || text[text_ind] == ';')
+		if (text[text_ind] == '.' || text[text_ind] == '!' || text[text_ind] == '?' || text[text_ind] == '"' || text[text_ind] == '‚Äù' || text[text_ind] == '‚Äú' || text[text_ind] == ';')
 		{
 			sent_text.push_back(text.substr(sent_start_ind, text_ind - sent_start_ind));
 			sent_text.back() = sent_text.back() + " ";
